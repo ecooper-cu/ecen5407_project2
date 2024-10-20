@@ -5,7 +5,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 # %% onshore wind data
-onshore_weather_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'wind_speeds', 'sd_2012_5m.csv'), header=1)
+onshore_weather_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'data/wind_speeds', 'sd_2012_5m.csv'), header=1)
 cols = onshore_weather_df.columns
 onshore_weather_df = onshore_weather_df[['wind speed at 100m (m/s)', 
                          'air pressure at 100m (Pa)',
@@ -15,7 +15,7 @@ onshore_roughness = 0.055
 onshore_weather_df.insert(3, 'roughness_length', [onshore_roughness]*onshore_weather_df.shape[0], True)
 onshore_ws = onshore_weather_df['wind_speed']
 # %% offshore wind data
-weather_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'wind_speeds', 'sd_2012_5m_osw.csv'), header=1)
+weather_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'data/wind_speeds', 'sd_2012_5m_osw.csv'), header=1)
 cols = weather_df.columns
 weather_df = weather_df[['wind speed at 100m (m/s)', 
                          'air pressure at 100m (Pa)',
