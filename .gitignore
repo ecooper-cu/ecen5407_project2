@@ -1,2 +1,5 @@
 # Dependencies
 venv/
+
+# CAISO data
+data/pickled_dataframes
