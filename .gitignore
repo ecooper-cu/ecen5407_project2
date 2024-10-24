@@ -3,3 +3,11 @@ venv/
 
 # CAISO data
 data/pickled_dataframes
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Other stuff
+.DS_store
+
