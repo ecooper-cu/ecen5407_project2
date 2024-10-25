@@ -17,7 +17,7 @@ utility_rate = UtilityRate.from_existing(generic_system)
 single_owner = SingleOwner.from_existing(generic_system)
 
 # %% Load the inputs from the JSON file for each module
-dir = 'data/PySAM_Inputs/'
+dir = 'data/PySAM_Inputs/Generic_Battery_System_Demo/'
 prefix = 'Generic_Battery_System_Demo_'
 file_names = ["generic_system", "battery", "grid", "utilityrate5", "singleowner"]
 modules = [generic_system, batt_model, grid, utility_rate, single_owner]
