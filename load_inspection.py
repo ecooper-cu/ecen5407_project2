@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 from datetime import datetime
 from scipy.interpolate import CubicSpline
 import pvlib
@@ -128,4 +129,78 @@ max_load_datetime = load['Datetime'][load['Load (MW)'] == max_load].item()
 print(f"The maximum load on the system is: {max_load:.2f} MW, which occurs at {max_load_datetime}.")
 
 # %%
-# To-do: find load that persists for 4 hours or more
+# Find instances where the load exceeds a given magnitude for a given duration
+def find_threshold_counts(load_threshold, duration, df):
+    """
+    Find the number of instances where the load exceeds a certain threshold for a given duration or
+    longer.
+
+    Parameters:
+        - load_threshold: The load threshold in MW. Function will search for datapoints that exceed
+        this value.
+        - duration: The duration in minutes. Function will search for datapoints that last for at 
+        least as long as this value.
+        - df: The DataFrame to search through. Must have a column for 'Load (MW)' and 'Datetime'
+
+    Returns:
+        - A count for the number of instances in the input DataFrame that meet the search 
+        conditions.
+    """
+    load_exceed_df = df[df['Load (MW)'] > load_threshold]
+        
+    # Add a helper column to identify groups of consecutive intervals
+    load_exceed_df.loc[:,'consecutive_id'] = (load_exceed_df['Datetime'].diff() > pd.Timedelta(minutes=5)).cumsum()
+
+    # Group by the consecutive_id and filter groups where the duration is at least the specified duration
+    result_df = load_exceed_df.groupby('consecutive_id').filter(
+        lambda x: (x['Datetime'].max() - x['Datetime'].min()).total_seconds() / 60 >= duration
+    )
+
+    # Return the number of instances that exceed the load threshold for the duration or longer
+    if len(result_df['consecutive_id'].to_list()) > 0:
+        return result_df['consecutive_id'].to_list()[-1]
+    else:
+        return 0
+
+load_boundaries = [30, 40, 45, 50, 55, 60, 70, 80, 90, 100]
+duration_boundaries = [5, 10, 15, 30, 60, 120, 180, 240, 300, 360]
+counts = []
+
+for l_bound in load_boundaries:
+    this_list = []
+    for d_bound in duration_boundaries:
+        this_count = find_threshold_counts(load_threshold=l_bound, duration=d_bound, df=result)
+        this_list.append(this_count)
+    counts.append(this_list)
+
+counts = np.array(counts)
+
+# %%
+# Plot the load threshold countsas a heatmap
+fig, ax = plt.subplots()
+im = ax.imshow(counts, cmap=colormaps['viridis'], origin='lower')
+
+# Show all ticks and label them with the respective list entries
+ax.set_xticks(np.arange(len(duration_boundaries)), labels=duration_boundaries)
+ax.set_xlabel('Load Duration [Min]')
+ax.set_yticks(np.arange(len(load_boundaries)), labels=load_boundaries)
+ax.set_ylabel('Load Magnitude [MW]')
+
+# Rotate the tick labels and set their alignment.
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+         rotation_mode="anchor")
+
+# Loop over data dimensions and create text annotations.
+for i in range(len(load_boundaries)):
+    for j in range(len(duration_boundaries)):
+        if i < 3:
+            color = 'k'
+        else:
+            color = 'w'
+        text = ax.text(j, i, counts[i, j],
+                       ha="center", va="center", color=color)
+
+ax.set_title("Instances of Excessive Load")
+fig.tight_layout()
+plt.show()
+# %%
