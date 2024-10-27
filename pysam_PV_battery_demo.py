@@ -132,15 +132,23 @@ for f, m in zip(file_names, modules):
 for m in modules:
     m.execute()
 
-# %% Print some example results to show that execution was successful
-print(f"{pvbatt_model.value('batt_computed_bank_capacity'):,.0f} kWh battery cycled {pvbatt_model.Outputs.batt_cycles[-1]} times.\n")
-print(f"Annual system AC output in year {pvbatt_model.value('analysis_period')} = {pvbatt_model.Outputs.annual_export_to_grid_energy[-1]:.3f} kWh")
-
-# %%
-# Create a dictionary of DataFrames with the outputs from each model
+# %% Create a dictionary of DataFrames with the outputs from each model
 pvbatt_model_outputs = parse_model_outputs_into_dataframes(pvbatt_model)
 grid_model_outputs = parse_model_outputs_into_dataframes(grid)
 utility_rate_outputs = parse_model_outputs_into_dataframes(utility_rate)
 single_owner_outputs = parse_model_outputs_into_dataframes(single_owner)
 
+# %% Print some example results to show that execution was successful
+num_cycles = pvbatt_model_outputs['Lifetime 30 Minute Data']['batt_cycles'].to_list()[-1]
+computed_capacity_kwh = pvbatt_model.value('batt_computed_bank_capacity')
+print(f"{computed_capacity_kwh:,.0f} kWh battery cycled {num_cycles} times.\n")
+
+analysis_period = int(pvbatt_model.value('analysis_period'))
+energy_to_grid = pvbatt_model_outputs['Annual_Data']['annual_export_to_grid_energy'].to_list()
+print(f"Annual system AC output in year {analysis_period} = {energy_to_grid[-1]:.3f} kWh")
+
+npv = single_owner_outputs['Single Values']['project_return_aftertax_npv'].values[0]
+print(f'Net Present Value: ${npv:.2f}')
+lcoe_nom = single_owner_outputs['Single Values']['lcoe_nom'].values[0]
+print(f'Nominal LCOE: {lcoe_nom:.2f} c/kWh')
 # %%
