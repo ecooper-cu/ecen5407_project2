@@ -10,16 +10,24 @@ import json # To load inputs from SAM
 # To organize and plot outputs from simulation
 import pandas as pd 
 from datetime import datetime, timedelta
-import plotly.express as px
+import matplotlib.pyplot as plt
 
 # %% Define some helper functions to manage the model outputs
 def hour_to_date_string(hour):
     # Define the start of the year
-    start_of_year = datetime(datetime.now().year, 1, 1)
+    start_of_year = datetime(year=2012, month=1, day=1)
     # Add the specified number of hours to the start of the year
     date_time = start_of_year + timedelta(hours=hour)
     # Format the datetime to the desired string format
-    return date_time.strftime('%b %-d, %I:%M %p')
+    return date_time.strftime('%Y-%m-%d, %H:%M:%S')
+
+def thirty_min_to_date_string(thirty_min):
+    # Define the start of the year
+    start_of_year = datetime(year=2012, month=1, day=1)
+    # Add the specified number of hours to the start of the year
+    date_time = start_of_year + timedelta(minutes=thirty_min * 30)
+    # Format the datetime to the desired string format
+    return date_time.strftime('%Y-%m-%d, %H:%M:%S')
 
 def parse_model_outputs_into_dataframes(model):
     """
@@ -94,8 +102,10 @@ def parse_model_outputs_into_dataframes(model):
                 df.index = df.index.map(hour_to_date_string)
             elif length == hours_in_analysis_period:
                 keyname = 'Lifetime Hourly Data'
+                df.index = df.index.map(hour_to_date_string)
             elif length == half_hours_in_analysis_period:
                 keyname = 'Lifetime 30 Minute Data'
+                df.index = df.index.map(thirty_min_to_date_string)
             else:
                 keyname = f'df_{length}'
             
@@ -104,6 +114,34 @@ def parse_model_outputs_into_dataframes(model):
         
     # Return the dictionary of DataFrames
     return dataframes
+
+def plot_values_by_time_range(df, start_time, end_time, y_columns):
+    # Use the datetime index as a column
+    this_df = df.reset_index(drop=False)
+    this_df.rename(columns={'index':'Datetime'},  inplace=True)
+    this_df['Datetime'] = pd.to_datetime(this_df['Datetime'])
+    
+    # Filter the DataFrame based on the time range
+    mask = (this_df['Datetime'] >= start_time) & (this_df['Datetime'] <= end_time)
+    df_filtered = this_df.loc[mask]
+    
+    # Plot each specified column
+    plt.figure(figsize=(10, 6))
+    
+    for column in y_columns:
+        if column in df_filtered.columns:
+            plt.plot(df_filtered['Datetime'], df_filtered[column], marker='o', linestyle='-', label=column)
+        else:
+            print(f"Warning: '{column}' does not exist in the dataframe.")
+    
+    plt.xlabel('Datetime')
+    plt.ylabel('Values')
+    plt.title(f'Values vs Time from {start_time} to {end_time}')
+    plt.legend()  # Add a legend to differentiate the lines
+    plt.xticks(rotation=45)
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
 
 # %% Create a new instance of each module
 pvbatt_model = PVSAM.new()
@@ -151,4 +189,7 @@ npv = single_owner_outputs['Single Values']['project_return_aftertax_npv'].value
 print(f'Net Present Value: ${npv:.2f}')
 lcoe_nom = single_owner_outputs['Single Values']['lcoe_nom'].values[0]
 print(f'Nominal LCOE: {lcoe_nom:.2f} c/kWh')
+# %% Generate a plot of some of the system outputs
+plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time='2012-07-27 00:00:00', end_time='2012-07-28 00:00:00', y_columns=['batt_SOC'])
+plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time='2012-07-27 00:00:00', end_time='2012-07-28 00:00:00', y_columns=['batt_power', 'system_to_grid', 'grid_to_batt'])
 # %%
