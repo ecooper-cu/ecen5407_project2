@@ -34,6 +34,38 @@ def parse_datestring(dt_str):
 
     return None  # Return None if all parsing attempts fail
 
+def find_threshold_counts(load_threshold, duration, df):
+    """
+    Find the number of instances where the load exceeds a certain threshold for a given duration or
+    longer.
+
+    Parameters:
+        - load_threshold: The load threshold in MW. Function will search for datapoints that exceed
+        this value.
+        - duration: The duration in minutes. Function will search for datapoints that last for at 
+        least as long as this value.
+        - df: The DataFrame to search through. Must have a column for 'Load (MW)' and 'Datetime'
+
+    Returns:
+        - A count for the number of instances in the input DataFrame that meet the search 
+        conditions.
+    """
+    load_exceed_df = df[df['Load (MW)'] > load_threshold]
+        
+    # Add a helper column to identify groups of consecutive intervals
+    load_exceed_df.loc[:,'consecutive_id'] = (load_exceed_df['Datetime'].diff() > pd.Timedelta(minutes=5)).cumsum()
+
+    # Group by the consecutive_id and filter groups where the duration is at least the specified duration
+    result_df = load_exceed_df.groupby('consecutive_id').filter(
+        lambda x: (x['Datetime'].max() - x['Datetime'].min()).total_seconds() / 60 >= duration
+    )
+
+    # Return the number of instances that exceed the load threshold for the duration or longer
+    if len(result_df['consecutive_id'].to_list()) > 0:
+        return result_df['consecutive_id'].to_list()[-1]
+    else:
+        return 0
+
 # %% Prepare data
 # Load the load data into a DataFrame
 load = pd.read_excel('data/Project 2 - Load Profile.xlsx')
@@ -83,8 +115,7 @@ offshore_weather_df['Datetime'] = pd.to_datetime(offshore_weather_df[['Year', 'M
 # Rename columns in the offshore weather DataFrame so as to preserve them during the merge
 offshore_weather_df.rename(columns=dict(zip(offshore_weather_df.columns.to_list(), [f'Offshore - {col_name}' for col_name in offshore_weather_df.columns.to_list()])), inplace=True)
 offshore_weather_df.rename(columns={'Offshore - Datetime':'Datetime'}, inplace=True)
-# %% 
-# Find the load during which generation is lacking
+# %% Find the load during which generation is lacking
 merged = pd.merge(load, nsrdb_interpolated, on='Datetime', how='inner')
 merged = pd.merge(merged, onshore_weather_df, on='Datetime', how='inner')
 merged = pd.merge(merged, offshore_weather_df, on='Datetime', how='inner')
@@ -93,8 +124,7 @@ result = merged[
     & (merged['Offshore - wind speed at 100m (m/s)'] <= 4)
     & (merged['GHI'] <= 100)
     ]
-# %%
-# Build load duration curves to show what must be supplied by batteries / alternative generation
+# %% Build load duration curves to show what must be supplied by batteries / alternative generation
 sorted_load = load['Load (MW)'].sort_values(ascending=False)
 sorted_load.reset_index(drop=True, inplace=True)
 peak_load = sorted_load[0]
@@ -122,46 +152,12 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# %% 
-# Print some load statistics
+# %% Print some load statistics
 max_load = load['Load (MW)'].max()
 max_load_datetime = load['Datetime'][load['Load (MW)'] == max_load].item()
 print(f"The maximum load on the system is: {max_load:.2f} MW, which occurs at {max_load_datetime}.")
 
-# %%
-# Find instances where the load exceeds a given magnitude for a given duration
-def find_threshold_counts(load_threshold, duration, df):
-    """
-    Find the number of instances where the load exceeds a certain threshold for a given duration or
-    longer.
-
-    Parameters:
-        - load_threshold: The load threshold in MW. Function will search for datapoints that exceed
-        this value.
-        - duration: The duration in minutes. Function will search for datapoints that last for at 
-        least as long as this value.
-        - df: The DataFrame to search through. Must have a column for 'Load (MW)' and 'Datetime'
-
-    Returns:
-        - A count for the number of instances in the input DataFrame that meet the search 
-        conditions.
-    """
-    load_exceed_df = df[df['Load (MW)'] > load_threshold]
-        
-    # Add a helper column to identify groups of consecutive intervals
-    load_exceed_df.loc[:,'consecutive_id'] = (load_exceed_df['Datetime'].diff() > pd.Timedelta(minutes=5)).cumsum()
-
-    # Group by the consecutive_id and filter groups where the duration is at least the specified duration
-    result_df = load_exceed_df.groupby('consecutive_id').filter(
-        lambda x: (x['Datetime'].max() - x['Datetime'].min()).total_seconds() / 60 >= duration
-    )
-
-    # Return the number of instances that exceed the load threshold for the duration or longer
-    if len(result_df['consecutive_id'].to_list()) > 0:
-        return result_df['consecutive_id'].to_list()[-1]
-    else:
-        return 0
-
+# %% Find instances where the load exceeds a given magnitude for a given duration
 load_boundaries = [30, 40, 45, 50, 55, 60, 70, 80, 90, 100]
 duration_boundaries = [5, 10, 15, 30, 60, 120, 180, 240, 300, 360]
 counts = []
@@ -175,8 +171,7 @@ for l_bound in load_boundaries:
 
 counts = np.array(counts)
 
-# %%
-# Plot the load threshold countsas a heatmap
+# %% Plot the load threshold countsas a heatmap
 fig, ax = plt.subplots()
 im = ax.imshow(counts, cmap=colormaps['viridis'], origin='lower')
 
