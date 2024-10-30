@@ -1,0 +1,102 @@
+{
+	"solar_resource_file": "data/222628_32.73_-117.18_2012_interpolated.csv",
+	"solar_resource_file": "data/222628_32.73_-117.18_2012_interpolated.csv",
+	"albedo": [
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001,
+		0.20000000000000001
+	],
+	"use_wf_albedo": 1,
+	"system_use_lifetime_output": 0,
+	"system_use_lifetime_output": 0,
+	"analysis_period": 25,
+	"analysis_period": 25,
+	"analysis_period": 25,
+	"analysis_period": 25,
+	"system_capacity": 89123.100000000006,
+	"system_capacity": 89123.100000000006,
+	"system_capacity": 89123.100000000006,
+	"system_capacity": 89123.100000000006,
+	"module_type": 0,
+	"dc_ac_ratio": 1.3,
+	"bifaciality": 0,
+	"array_type": 2,
+	"tilt": 0,
+	"azimuth": 180,
+	"gcr": 0.29999999999999999,
+	"soiling": [
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	],
+	"losses": 14.075660688264469,
+	"en_snowloss": 0,
+	"inv_eff": 96,
+	"shading_en_string_option": 0,
+	"shading_string_option": 0,
+	"shading_en_timestep": 0,
+	"shading_timestep": [
+		[
+			0
+		]
+	],
+	"shading_en_mxh": 0,
+	"shading_mxh": [
+		[
+			0
+		]
+	],
+	"shading_en_azal": 0,
+	"shading_azal": [
+		[
+			0
+		]
+	],
+	"shading_en_diff": 0,
+	"shading_diff": 0,
+	"batt_simple_enable": 0,
+	"adjust_constant": 0,
+	"adjust_constant": 0,
+	"adjust_en_timeindex": 0,
+	"adjust_en_timeindex": 0,
+	"adjust_en_periods": 0,
+	"adjust_en_periods": 0,
+	"adjust_timeindex": [
+		0
+	],
+	"adjust_timeindex": [
+		0
+	],
+	"adjust_periods": [
+		[
+			0,
+			0,
+			0
+		]
+	],
+	"adjust_periods": [
+		[
+			0,
+			0,
+			0
+		]
+	]
+}
