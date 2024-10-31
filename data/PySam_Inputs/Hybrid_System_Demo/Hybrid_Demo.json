@@ -19317,7 +19317,7 @@
         "windpower": {
             "ops_env_loss": 1,
             "avail_grid_loss": 1.5,
-            "wind_resource_filename": "data/wind_speeds/sd_2012_5m.csv",
+            "wind_resource_filename": "data/wind_speeds/sd_2012_5m_no_leap.csv",
             "degradation": [
                 0
             ],
