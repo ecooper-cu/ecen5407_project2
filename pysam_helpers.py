@@ -3,19 +3,22 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
 # Define some helper functions to manage the model outputs
-def hour_to_date_string(hour):
+def interval_to_date_string(interval, interval_type, year):
     # Define the start of the year
-    start_of_year = datetime(year=2012, month=1, day=1)
-    # Add the specified number of hours to the start of the year
-    date_time = start_of_year + timedelta(hours=hour)
-    # Format the datetime to the desired string format
-    return date_time.strftime('%Y-%m-%d, %H:%M:%S')
-
-def thirty_min_to_date_string(thirty_min):
-    # Define the start of the year
-    start_of_year = datetime(year=2012, month=1, day=1)
-    # Add the specified number of hours to the start of the year
-    date_time = start_of_year + timedelta(minutes=thirty_min * 30)
+    start_of_year = datetime(year=year, month=1, day=1)
+    # Define the datetime based on the type of increment
+    if interval_type == 'hour':
+        # Add the specified number of hour intervals to the start of the year
+        date_time = start_of_year + timedelta(hours=interval)
+    elif interval_type == 'half-hour':
+        # Add the specified number of half-hour intervals to the start of the year
+        date_time = start_of_year + timedelta(minutes=interval * 30)
+    elif interval_type == '5-minute':
+        # Add the specified number of 5-minute intervals to the start of the year
+        date_time = start_of_year + timedelta(minutes=interval * 5)
+    else:
+        # Return empty string if the interval type provided doesn't match any option
+        return ""
     # Format the datetime to the desired string format
     return date_time.strftime('%Y-%m-%d, %H:%M:%S')
 
@@ -52,6 +55,7 @@ def parse_model_outputs_into_dataframes(model):
     days_in_analysis_period = int(analysis_period * 365)
     hours_in_analysis_period = days_in_analysis_period * 24
     half_hours_in_analysis_period = hours_in_analysis_period * 2
+    five_minutes_in_analysis_period = hours_in_analysis_period * 12
 
     # Initialize a dictionary to store data for each unique length
     grouped_data = {}
@@ -89,13 +93,20 @@ def parse_model_outputs_into_dataframes(model):
                 df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
             elif length == 8760:
                 keyname = 'Hourly Data'
-                df.index = df.index.map(hour_to_date_string)
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='hour', year=2012))
             elif length == hours_in_analysis_period:
                 keyname = 'Lifetime Hourly Data'
-                df.index = df.index.map(hour_to_date_string)
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='hour', year=2012))
             elif length == half_hours_in_analysis_period:
                 keyname = 'Lifetime 30 Minute Data'
-                df.index = df.index.map(thirty_min_to_date_string)
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='half-hour', year=2012))
+            elif length == five_minutes_in_analysis_period:
+                keyname = 'Lifetime 5 Minute Data'
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='5-minute', year=2012))
             else:
                 keyname = f'df_{length}'
             
