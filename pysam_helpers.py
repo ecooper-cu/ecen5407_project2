@@ -48,7 +48,12 @@ def parse_model_outputs_into_dataframes(model):
     outputs_dict = model.Outputs.export()
 
     # Find the analysis period of the model
-    analysis_period = model.value('analysis_period')
+    try:
+        analysis_period = model.value('analysis_period')
+    except AttributeError as e:
+        print(f"Warning! While trying to access the analysis_period value for this model, the\
+        following error was raised:\n{e}\nUsing 25 years as the default...")
+        analysis_period = 25.0
     
     # Calculate some expected DataFrame lengths
     years_in_analysis_period = int(analysis_period) + 1
