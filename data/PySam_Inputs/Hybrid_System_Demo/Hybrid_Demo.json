@@ -83,7 +83,7 @@
             "system_use_lifetime_output": 0,
             "en_snowloss": 0,
             "losses": 14.075660688264469,
-            "solar_resource_file": "data/222628_32.73_-117.18_2012_interpolated.csv",
+            "solar_resource_file": "data/222628_32.73_-117.18_2022_interpolated.csv",
             "inv_eff": 96,
             "shading_string_option": 0,
             "array_type": 2,
