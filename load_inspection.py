@@ -198,4 +198,9 @@ for i in range(len(load_boundaries)):
 ax.set_title("Instances of Excessive Load")
 fig.tight_layout()
 plt.show()
+# %% Plot load data for a specific day
+date = '2012-12-24'
+filtered_df = load[load['Datetime'].dt.date == pd.to_datetime(date).date()]
+filtered_df.plot(x='Datetime', y='Load (MW)', title=date, xlabel='Datetime', ylabel='Load (MW)', grid=True)
+
 # %%
