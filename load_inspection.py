@@ -66,55 +66,71 @@ def find_threshold_counts(load_threshold, duration, df):
     else:
         return 0
 
+def interp_nsrdb(nsrdb_filepath):
+    # Load the solar resource data into a DataFrame
+    nsrdb = pd.read_csv(nsrdb_filepath, skiprows=2, usecols=['Year', 'Month', 'Day', 'Hour', 'Minute', 'Temperature', 'DHI', 'GHI',
+        'DNI', 'Surface Albedo', 'Wind Speed', 'Pressure'])
+    local_index = pd.DatetimeIndex(nsrdb['Year'].astype(str) + '-' + nsrdb['Month'].astype(str) +
+                                '-' + nsrdb['Day'].astype(str) + ' ' + nsrdb['Hour'].astype(str) +
+                                ':' + nsrdb['Minute'].astype(str))
+    nsrdb.set_index(local_index, inplace=True)
+
+    # Interpolate NSRDB data
+    start_date = str(nsrdb.index[0])
+    end_date = str(nsrdb.index[-1])
+
+    times_interp = pd.date_range(start_date, end_date, freq='5min')
+
+    nsrdb_interpolated = pd.DataFrame(index=times_interp)
+    nsrdb_interpolated['dni_extra'] = pvlib.irradiance.get_extra_radiation(nsrdb_interpolated.index)
+    times_float = times_interp.to_numpy().astype(float)
+    for i in nsrdb.columns:
+        cs = CubicSpline(nsrdb.index.to_numpy().astype(float), nsrdb[i].values)
+        nsrdb_interpolated[i] = cs(times_float)
+        nsrdb_interpolated[i] = np.maximum(nsrdb_interpolated[i], 0)
+
+    # Use the datetime as a column
+    nsrdb_interpolated.reset_index(drop=False, inplace=True)
+    nsrdb_interpolated.rename(columns={'index':'Datetime'}, inplace=True)
+
+    return nsrdb_interpolated
+
+def format_load_data(load_filepath):
+    load = pd.read_excel(load_filepath)
+    # Convert the leapday datetime entries to a string
+    load['Datetime'] = load['Datetime'].apply(parse_leapday_datetimes)
+    # Change to 2012 so that the datetime library properly handles the leap day
+    load['Datetime'] = load['Datetime'].str.replace('2022', '2012')
+    # Fix the extra day entries – they should just be Jan 1 of the following year
+    load['Datetime'] = load['Datetime'].str.replace('2021', '2013')
+    # Convert all strings to datetime 
+    load['Datetime'] = load['Datetime'].apply(parse_datestring)
+
+    return load
+
+def prepare_wind_data(wind_filepath, is_offshore=False):
+    # Load the wind resource data into a DataFrame
+    df = pd.read_csv(wind_filepath, header=1)
+
+    # Create a datetime column
+    df['Datetime'] = pd.to_datetime(df[['Year', 'Month', 'Day', 'Hour', 'Minute']])
+
+    # Rename columns in the offshore weather DataFrame so as to preserve them during the merge
+    if is_offshore:
+        df.rename(columns=dict(zip(df.columns.to_list(), [f'Offshore - {col_name}' for col_name in df.columns.to_list()])), inplace=True)
+        df.rename(columns={'Offshore - Datetime':'Datetime'}, inplace=True)
+
+    return df
+
 # %% Prepare data
 # Load the load data into a DataFrame
-load = pd.read_excel('data/Project 2 - Load Profile.xlsx')
-# Convert the leapday datetime entries to a string
-load['Datetime'] = load['Datetime'].apply(parse_leapday_datetimes)
-# Change to 2012 so that the datetime library properly handles the leap day
-load['Datetime'] = load['Datetime'].str.replace('2022', '2012')
-# Fix the extra day entries – they should just be Jan 1 of the following year
-load['Datetime'] = load['Datetime'].str.replace('2021', '2013')
-# Convert all strings to datetime 
-load['Datetime'] = load['Datetime'].apply(parse_datestring)
+load = format_load_data(load_filepath='data/Project 2 - Load Profile.xlsx')
 
-# Load the solar resource data into a DataFrame
-nsrdb = pd.read_csv('data/222628_32.73_-117.18_2012.csv', skiprows=2, usecols=['Year', 'Month', 'Day', 'Hour', 'Minute', 'Temperature', 'DHI', 'GHI',
-       'DNI', 'Surface Albedo', 'Wind Speed', 'Pressure'])
-local_index = pd.DatetimeIndex(nsrdb['Year'].astype(str) + '-' + nsrdb['Month'].astype(str) +
-                             '-' + nsrdb['Day'].astype(str) + ' ' + nsrdb['Hour'].astype(str) +
-                               ':' + nsrdb['Minute'].astype(str))
-nsrdb.set_index(local_index, inplace=True)
+nsrdb_interpolated = interp_nsrdb(nsrdb_filepath='data/222628_32.73_-117.18_2012.csv')
 
-# Interpolate NSRDB data
-start_date = str(nsrdb.index[0])
-end_date = str(nsrdb.index[-1])
+onshore_weather_df = prepare_wind_data(wind_filepath='data/wind_speeds/sd_2012_5m.csv')
+offshore_weather_df = prepare_wind_data(wind_filepath='data/wind_speeds/sd_2012_5m_osw.csv', is_offshore=True)
 
-times_interp = pd.date_range(start_date, end_date, freq='5min')
-
-nsrdb_interpolated = pd.DataFrame(index=times_interp)
-nsrdb_interpolated['dni_extra'] = pvlib.irradiance.get_extra_radiation(nsrdb_interpolated.index)
-times_float = times_interp.to_numpy().astype(float)
-for i in nsrdb.columns:
-    cs = CubicSpline(nsrdb.index.to_numpy().astype(float), nsrdb[i].values)
-    nsrdb_interpolated[i] = cs(times_float)
-    nsrdb_interpolated[i] = np.maximum(nsrdb_interpolated[i], 0)
-
-# Use the datetime as a column
-nsrdb_interpolated.reset_index(drop=False, inplace=True)
-nsrdb_interpolated.rename(columns={'index':'Datetime'}, inplace=True)
-
-# Load the wind resource data into a DataFrame
-onshore_weather_df = pd.read_csv('data/wind_speeds/sd_2012_5m.csv', header=1)
-offshore_weather_df = pd.read_csv('data/wind_speeds/sd_2012_5m_osw.csv', header=1)
-
-# Create datetime columns for the wind DataFrames
-onshore_weather_df['Datetime'] = pd.to_datetime(onshore_weather_df[['Year', 'Month', 'Day', 'Hour', 'Minute']])
-offshore_weather_df['Datetime'] = pd.to_datetime(offshore_weather_df[['Year', 'Month', 'Day', 'Hour', 'Minute']])
-
-# Rename columns in the offshore weather DataFrame so as to preserve them during the merge
-offshore_weather_df.rename(columns=dict(zip(offshore_weather_df.columns.to_list(), [f'Offshore - {col_name}' for col_name in offshore_weather_df.columns.to_list()])), inplace=True)
-offshore_weather_df.rename(columns={'Offshore - Datetime':'Datetime'}, inplace=True)
 # %% Find the load during which generation is lacking
 merged = pd.merge(load, nsrdb_interpolated, on='Datetime', how='inner')
 merged = pd.merge(merged, onshore_weather_df, on='Datetime', how='inner')
