@@ -61,6 +61,8 @@ def parse_model_outputs_into_dataframes(model):
     hours_in_analysis_period = days_in_analysis_period * 24
     half_hours_in_analysis_period = hours_in_analysis_period * 2
     five_minutes_in_analysis_period = hours_in_analysis_period * 12
+    hours_in_year = 24*365
+    five_minutes_in_year = 12*24*365
 
     # Initialize a dictionary to store data for each unique length
     grouped_data = {}
@@ -96,10 +98,15 @@ def parse_model_outputs_into_dataframes(model):
             elif length == 12:
                 keyname = 'Monthly Data'
                 df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-            elif length == 8760:
+            elif length == hours_in_year:
                 keyname = 'Hourly Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='hour', year=2012))
+            elif length == five_minutes_in_year:
+                keyname = '5 Minute Data'
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='5-minute', year=2012))
+                df = manage_leap_years(df)
             elif length == hours_in_analysis_period:
                 keyname = 'Lifetime Hourly Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
@@ -114,7 +121,7 @@ def parse_model_outputs_into_dataframes(model):
                 keyname = 'Lifetime 5 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='5-minute', year=2012))
-                df = manage_leap_years(df)
+                df = manage_leap_years(df)                
             else:
                 keyname = f'df_{length}'
             
