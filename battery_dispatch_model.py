@@ -81,14 +81,5 @@ merged['Excess Generation (kW)'] =  merged['Generation (kW)'] - merged['Load (kW
 # (negative for charging, positive for discharging)
 merged['Battery Power Target (kW)'] = merged['Excess Generation (kW)'] * -1
 
-# Artificially adjust the datetime to be a non-leap year so that the subsequent resample works
-mask = merged['Datetime'].dt.date >= pd.to_datetime('2012-03-01').date()
-merged.loc[mask, 'Datetime'] += pd.Timedelta(days=365)
-mask = merged['Datetime'].dt.date <= pd.to_datetime('2012-02-28').date()
-merged.loc[mask, 'Datetime'] += pd.Timedelta(days=366)
-
-# Resample the data to average over the hour
-hourly_df = merged.set_index('Datetime').resample('h').mean().reset_index()
-
 # %%Generate a csv with the dispatch target
-hourly_df['Battery Power Target (kW)'].to_csv('dispatch_target.csv', index=False)
+merged['Battery Power Target (kW)'].to_csv('dispatch_target.csv', index=False)
