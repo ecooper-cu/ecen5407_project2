@@ -9,6 +9,7 @@ import json # To load inputs from SAM
 
 # To organize and plot outputs from simulation
 import pysam_helpers
+
 # %% Create a new instance of each module
 pvbatt_model = PVSAM.new()
 grid = Grid.from_existing(pvbatt_model)
@@ -56,6 +57,9 @@ print(f'Net Present Value: ${npv:.2f}')
 lcoe_nom = single_owner_outputs['Single Values']['lcoe_nom'].values[0]
 print(f'Nominal LCOE: {lcoe_nom:.2f} c/kWh')
 # %% Generate a plot of some of the system outputs
-pysam_helpers.plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time='2012-07-27 00:00:00', end_time='2012-07-28 00:00:00', y_columns=['batt_SOC'])
-pysam_helpers.plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time='2012-07-27 00:00:00', end_time='2012-07-28 00:00:00', y_columns=['batt_power', 'system_to_grid', 'grid_to_batt'])
+date_start = '2012-02-28 00:00:00'
+date_end = '2012-03-02 00:00:00'
+pysam_helpers.plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
+pysam_helpers.plot_values_by_time_range(df=pvbatt_model_outputs['Lifetime 30 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['system_to_batt', 'system_to_grid', 'ac_gross'])
+
 # %%
