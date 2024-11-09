@@ -104,14 +104,17 @@ def parse_model_outputs_into_dataframes(model):
                 keyname = 'Lifetime Hourly Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='hour', year=2012))
+                df = manage_leap_years(df)
             elif length == half_hours_in_analysis_period:
                 keyname = 'Lifetime 30 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='half-hour', year=2012))
+                df = manage_leap_years(df)
             elif length == five_minutes_in_analysis_period:
                 keyname = 'Lifetime 5 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='5-minute', year=2012))
+                df = manage_leap_years(df)
             else:
                 keyname = f'df_{length}'
             
@@ -148,3 +151,32 @@ def plot_values_by_time_range(df, start_time, end_time, y_columns):
     plt.grid()
     plt.tight_layout()
     plt.show()
+
+def is_leap_year(year):
+    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+
+def manage_leap_years(df):
+    # Reset the index and convert the index to a datetime column
+    df = df.reset_index().rename(columns={'index': 'Datetime'})
+    df['Datetime'] = pd.to_datetime(df['Datetime'], format='%Y-%m-%d, %H:%M:%S')
+
+    # Identify leap years in the range
+    leap_years = [year for year in range(df['Datetime'].dt.year.min(), df['Datetime'].dt.year.max() + 1) if is_leap_year(year)]
+
+    # For each leap year, adjust the Feb 29 entries and shift remaining dates
+    for leap_year in leap_years:
+        feb_29_start = pd.Timestamp(f'{leap_year}-02-29 00:00:00')
+        
+        # Move entries on or after Feb 29 back by one day
+        feb_29_mask = df['Datetime'] >= feb_29_start
+        df.loc[feb_29_mask, 'Datetime'] += pd.Timedelta(days=1)
+
+    # Sort the DataFrame by datetime again, just in case the shifts caused disorder
+    df = df.sort_values(by='Datetime').reset_index(drop=True)
+
+    # Convert 'Datetime' back to the original string format and set it as the index
+    df['Datetime'] = df['Datetime'].dt.strftime('%Y-%m-%d, %H:%M:%S')
+    df = df.set_index('Datetime')
+
+    # Return the adjusted DataFrame
+    return df
