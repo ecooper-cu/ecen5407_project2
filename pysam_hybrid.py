@@ -1,19 +1,23 @@
-# %% Import each module in the order that it will be executed
-import PySAM.Pvwattsv8 as pv_model
+# %% Module imports
+# Get performance model for each subsystem
+import PySAM.Pvsamv1 as pv_model
 import PySAM.Windpower as wind_model
 import PySAM.Battery as battery_model
+
+# Get function for managing hybrid variables and simulations
 from PySAM.Hybrids.HybridSystem import HybridSystem
 
-import json # To load inputs from SAM
+# To load inputs from SAM
+import json
 
 # To organize and plot outputs from simulation
 import pysam_helpers
 
 # %% Load the inputs from the JSON file
 # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
-# The JSON file referenced here is from SAM code generator for a PVWatts Wind Battery sytem with a
+# The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
-inputs_file = 'data/PySam_Inputs/Hybrid_System_Demo/Hybrid_Demo.json'
+inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
 
@@ -34,7 +38,7 @@ m.execute()
 # Be careful to use the correct module names as defined by the HybridSystem() function:
 #     pv, pvwatts, wind, gensys, battery, fuelcell
 #     _grid, singleowner, utilityrate5, host_developer
-pvannualenergy = m.pvwatts.Outputs.annual_energy
+pvannualenergy = m.pv.Outputs.annual_energy
 windannualenergy = m.wind.Outputs.annual_energy
 battrountripefficiency = m.battery.Outputs.average_battery_roundtrip_efficiency
 gridannualenergy = m._grid.SystemOutput.annual_energy
@@ -48,11 +52,18 @@ print(f"Annual System AC Energy in Year 1 was: {gridannualenergy:.2e} kWh")
 print(f"The net present value (NPV) of the system is: ${npv:.2e}")
 
 # %% Create a dictionary of DataFrames with the outputs from each model
-pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pvwatts)
+pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
 grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
 single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
+
+#%% Generate some plots
+date_start = '2012-07-27 00:00:00'
+date_end = '2012-07-28 00:00:00'
+
+pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
+pysam_helpers.plot_values_by_time_range(df=pv_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['gen', 'ac_gross'])
 
 # %% Re-run the model using data with the Feb 29 values subbed in for Feb 28 values.
 # We are using input files which represent the resource availability from the year 2012. However, 
@@ -74,7 +85,7 @@ m_leap.wind.Resource.wind_resource_filename = 'data/wind_speeds/sd_2012_5m_LEAP.
 
 m_leap.execute()
 
-pv_model_leap_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m_leap.pvwatts)
+pv_model_leap_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m_leap.pv)
 wind_model_leap_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m_leap.wind)
 battery_model_leap_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m_leap.battery)
 grid_model_leap_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m_leap._grid)
