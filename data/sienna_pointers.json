@@ -1,0 +1,28 @@
+[
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "Generator",
+        "component_name": "solar1",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "max_active_power",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "sienna_pv_gen.csv"
+    },
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "ElectricLoad",
+        "component_name": "load1",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "max_active_power",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "sienna_load.csv"
+    }
+]
