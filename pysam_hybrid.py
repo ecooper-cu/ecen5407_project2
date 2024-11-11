@@ -189,10 +189,12 @@ print(f"{curtailment_percent:.2f}% of annual energy production in Year 1 was cur
 print(f"The installed cost of the system is: ${net_cost:.2e}")
 print(f"The calculated nominal LCOE is: {(lcoe_nom/100):.2f} $/kWh")
 
-# Plot some results
+# %%Plot some results
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
-merged.set_index('Datetime', inplace=True)
+#merged.set_index('Datetime', inplace=True)
 pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_time=date_end, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Total Generation (kW)'])
-
+date_start = '2012-12-19 00:00:00'
+date_end = '2012-12-20 00:00:00'
+pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_time=date_end, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Total Generation (kW)'])
 # %%
