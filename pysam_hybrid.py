@@ -56,14 +56,14 @@ print(f'The round trip efficiency of the battery is: {battrountripefficiency:.2f
 print(f"Annual System AC Energy in Year 1 was: {gridannualenergy:.2e} kWh")
 print(f"The net present value (NPV) of the system is: ${npv:.2e}")
 
-# %% Create a dictionary of DataFrames with the outputs from each model
+# Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
 grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
 single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
-#%% Generate some plots
+# Generate some plots
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
 
@@ -189,10 +189,10 @@ print(f"{curtailment_percent:.2f}% of annual energy production in Year 1 was cur
 print(f"The installed cost of the system is: ${net_cost:.2e}")
 print(f"The calculated nominal LCOE is: {(lcoe_nom/100):.2f} $/kWh")
 
-# %%Plot some results
+# Plot some results
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
-#merged.set_index('Datetime', inplace=True)
+merged.set_index('Datetime', inplace=True)
 pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_time=date_end, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Total Generation (kW)'])
 date_start = '2012-12-19 00:00:00'
 date_end = '2012-12-20 00:00:00'
