@@ -48,11 +48,6 @@ windannualenergy = m.wind.Outputs.annual_energy
 battrountripefficiency = m.battery.Outputs.average_battery_roundtrip_efficiency
 gridannualenergy = m._grid.SystemOutput.annual_energy
 npv = m.singleowner.Outputs.project_return_aftertax_npv
-windenergytime = m.wind.Outputs.annual_energy_distribution_time # time series of wind production
-columns = windenergytime[0][1:] 
-row_indices = [row[0] for row in windenergytime[1:]]  
-values = [row[1:] for row in windenergytime[1:]]      
-windseries_df = pd.DataFrame(values, columns=columns, index=row_indices) # df of windseries
 
 # print outputs
 print(f'The annual generation from PV is: {pvannualenergy:.2e} kWh')
@@ -93,7 +88,7 @@ unassigned = m_leap.assign(inputs)
 print(unassigned)
 
 m_leap.pv.SolarResource.solar_resource_file = 'data/222628_32.73_-117.18_2022_interpolated_LEAP.csv'
-m_leap.wind.Resource.wind_resource_filename = 'data/wind_speeds/sd_2012_5m_LEAP.csv'
+m_leap.wind.Resource.wind_resource_filename = 'data/wind_speeds/sd_2012_5m_leap.csv'
 
 # Change the minimum battery SoC to 10%
 m_leap.battery.value("batt_minimum_SOC", 10)
