@@ -197,4 +197,5 @@ pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_ti
 date_start = '2012-12-19 00:00:00'
 date_end = '2012-12-20 00:00:00'
 pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_time=date_end, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Total Generation (kW)'])
+pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
 # %%
