@@ -48,6 +48,11 @@ windannualenergy = m.wind.Outputs.annual_energy
 battrountripefficiency = m.battery.Outputs.average_battery_roundtrip_efficiency
 gridannualenergy = m._grid.SystemOutput.annual_energy
 npv = m.singleowner.Outputs.project_return_aftertax_npv
+windenergytime = m.wind.Outputs.annual_energy_distribution_time # time series of wind production
+columns = windenergytime[0][1:] 
+row_indices = [row[0] for row in windenergytime[1:]]  
+values = [row[1:] for row in windenergytime[1:]]      
+windseries_df = pd.DataFrame(values, columns=columns, index=row_indices) # df of windseries
 
 # print outputs
 print(f'The annual generation from PV is: {pvannualenergy:.2e} kWh')
