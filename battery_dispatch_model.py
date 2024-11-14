@@ -62,24 +62,34 @@ load['Load (kW)'] = load['Load (MW)'] * 1000
 
 # Build a dataframe of generation data
 pv_df = pv_model_outputs['Lifetime 5 Minute Data'].reset_index()
-pv_gen = pv_df[['Datetime', 'subarray1_dc_gross']]
-pv_gen.rename(columns={'subarray1_dc_gross':'PV (kW)'}, inplace=True)
+pv_gen = pv_df[['Datetime', 'subarray1_dc_gross', 'gen']]
+pv_gen.rename(columns={'subarray1_dc_gross':'PV DC Gross (kW)', 'gen': 'PV Generation (kW)'}, inplace=True)
 wind_df = wind_model_outputs['5 Minute Data'].reset_index()
 wind_gen = wind_df[['Datetime', 'gen']]
-wind_gen.rename(columns={'gen':'Wind (kW)'}, inplace=True)
+wind_gen.rename(columns={'gen':'Wind Generation (kW)'}, inplace=True)
 gen = pd.merge(pv_gen, wind_gen, on='Datetime', how='inner')
 gen['Datetime'] = pd.to_datetime(gen['Datetime'])
-gen['Generation (kW)'] = gen['PV (kW)'] + gen['Wind (kW)']
+gen['System Power (kW)'] = gen['PV DC Gross (kW)'] + gen['Wind Generation (kW)']
 
 # Merge the two dataframes
 merged = pd.merge(gen, load, on='Datetime', how='inner')
 
 # Identify where generation exceeds load 
-merged['Excess Generation (kW)'] =  merged['Generation (kW)'] - merged['Load (kW)']
+merged['Power Available for Battery (kW)'] =  merged['System Power (kW)'] - merged['Load (kW)']
 
 # Set the battery power target equal to the difference
 # (negative for charging, positive for discharging)
-merged['Battery Power Target (kW)'] = merged['Excess Generation (kW)'] * -1
+merged['Battery Power Target (kW)'] = merged['Power Available for Battery (kW)'] * -1
 
-# %%Generate a csv with the dispatch target
+# %% Generate some plots
+date_start = '2012-07-27 00:00:00'
+date_end = '2012-07-28 00:00:00'
+gen.set_index('Datetime', inplace=True)
+pysam_helpers.plot_values_by_time_range(df=gen, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)'])
+
+# %% Generate a csv with the dispatch target
 merged['Battery Power Target (kW)'].to_csv('dispatch_target.csv', index=False)
+
+# %% Generate a csv of system power output without the battery
+gen.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
+# %%
