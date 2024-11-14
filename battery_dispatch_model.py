@@ -91,5 +91,5 @@ pysam_helpers.plot_values_by_time_range(df=gen, start_time=date_start, end_time=
 merged['Battery Power Target (kW)'].to_csv('dispatch_target.csv', index=False)
 
 # %% Generate a csv of system power output without the battery
-gen.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
+merged.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
 # %%
