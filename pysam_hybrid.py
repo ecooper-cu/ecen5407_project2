@@ -43,18 +43,72 @@ m.execute()
 # Be careful to use the correct module names as defined by the HybridSystem() function:
 #     pv, pvwatts, wind, gensys, battery, fuelcell
 #     _grid, singleowner, utilityrate5, host_developer
-pvannualenergy = m.pv.Outputs.annual_energy
-windannualenergy = m.wind.Outputs.annual_energy
-battrountripefficiency = m.battery.Outputs.average_battery_roundtrip_efficiency
-gridannualenergy = m._grid.SystemOutput.annual_energy
-npv = m.singleowner.Outputs.project_return_aftertax_npv
+# Relationships between dependent variables can be found in runtime/ui files:
+# https://github.com/NREL/SAM/blob/develop/deploy/runtime/ui/
+
+# PV Stuff
+pv_capacity_kWdc = m.pv.SystemDesign.system_capacity
+pv_land_area = m.pv.HybridCosts.land_area * 4046.86 # square meters
+inverter_model = int(m.pv.Inverter.inverter_model)
+inv_snl_paco = m.pv.Inverter.inv_snl_paco # Inverter Sandia Maximum AC Power [Wac]
+inv_ds_paco = m.pv.Inverter.inv_ds_paco # Inverter Datasheet Maximum AC Power [Wac]
+inv_pd_paco = m.pv.Inverter.inv_pd_paco # Inverter Partload Maximum AC Power [Wac]
+inv_cec_cg_paco = m.pv.Inverter.inv_cec_cg_paco # Inverter Coefficient Generator Max AC Power [Wac]
+inverter_power = [inv_snl_paco, inv_ds_paco, inv_pd_paco, inv_cec_cg_paco][inverter_model]
+inverter_count = m.pv.SystemDesign.inverter_count
+total_inverter_capacity = inverter_power * inverter_count / 1000 # [kWac]
+pv_dcac_ratio = pv_capacity_kWdc / total_inverter_capacity
+pv_cost = m.pv.HybridCosts.total_installed_cost
+
+# Wind Stuff
+wind_capacity_kWac = m.wind.Farm.system_capacity
+wind_size_x = max(m.wind.Farm.wind_farm_xCoordinates) # meters
+wind_size_y = max(m.wind.Farm.wind_farm_yCoordinates) # meters
+wind_land_area = wind_size_x * wind_size_y # square meters
+wind_cost = m.wind.HybridCosts.total_installed_cost
+
+
+# Battery Stuff
+battery_power_kWdc = m.battery.BatterySystem.batt_power_discharge_max_kwdc 
+battery_capacity_kWhdc = m.battery.BatterySystem.batt_computed_bank_capacity
+battery_dc_ac_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
+battery_time_at_max_discharge = battery_capacity_kWhdc / battery_power_kWdc
+if m.battery.BatterySystem.batt_ac_or_dc == 0:
+        battery_connection_type = 'DC'
+        battery_charge_efficiency = m.battery.BatterySystem.batt_dc_dc_efficiency
+        battery_discharge_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
+elif m.battery.BatterySystem.batt_ac_or_dc == 1:
+        battery_connection_type = 'AC'
+        battery_charge_efficiency = m.battery.BatterySystem.batt_ac_dc_efficiency
+        battery_discharge_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
+else:
+        battery_connection_type = 'dis-'
+        battery_charge_efficiency = 0
+        battery_discharge_efficiency = 0
+battery_cost = m.battery.HybridCosts.total_installed_cost
+
+system_cost = pv_cost + wind_cost + battery_cost
 
 # print outputs
-print(f'The annual generation from PV is: {pvannualenergy:.2e} kWh')
-print(f'The annual generation from wind is: {windannualenergy:.2e} kWh')
-print(f'The round trip efficiency of the battery is: {battrountripefficiency:.2f}%')
-print(f"Annual System AC Energy in Year 1 was: {gridannualenergy:.2e} kWh")
-print(f"The net present value (NPV) of the system is: ${npv:.2e}")
+print(f'The total installed cost for the system is: ${system_cost:.2f}')
+print('\n')
+print(f'The PV system size is: {pv_capacity_kWdc:.2f} kW (DC)')
+print(f'The PV AC capacity is: {total_inverter_capacity:.2f} kW (AC)')
+print(f'The PV system DC:AC ratio is: {pv_dcac_ratio:.2f}')
+print(f'The PV system spans {pv_land_area:.2f} square meters')
+print(f'The total installed cost for the PV system is: ${pv_cost:.2f}')
+print('\n')
+print(f'The wind system size is: {wind_capacity_kWac:.2f} kW (AC)')
+print(f'The wind system spans {wind_land_area:.2f} square meters')
+print(f'The total installed cost for the wind system is: ${wind_cost:.2f}')
+print('\n')
+print(f'The battery nominal power is: {battery_power_kWdc:.2f} kW (DC)')
+print(f'The battery capacity is: {battery_capacity_kWhdc:.2f} kWh (DC)')
+print(f'The battery can discharge for {battery_time_at_max_discharge} hours at rated power.')
+print(f'The battery is {battery_connection_type} connected.')
+print(f'The battery charges at {battery_charge_efficiency:.2f}% efficiency')
+print(f'The battery discharges at {battery_discharge_efficiency:.2f}% efficiency')
+print(f'The total installed cost for the battery system is: ${battery_cost:.2f}')
 
 # Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
