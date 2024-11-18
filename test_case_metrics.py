@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 def calculate_baseline_metrics(test_case):
     """
@@ -9,7 +10,7 @@ def calculate_baseline_metrics(test_case):
     Metrics include:
      - whether the net generation is greater than the net load (feasibility) (bool)
      - total curtailed wind and solar (measure of excess generation) (float)
-     - average battery SOC (measure of adequate battery sizing) (array)
+     - average battery SOC each month (measure of adequate battery sizing) (array size 12)
 
      Params:
      test_case (pd.DataFrame): contains time series of power generated for wind, solar, battery, geothermal, and load
@@ -17,25 +18,33 @@ def calculate_baseline_metrics(test_case):
      Dictionary with stored metrics
     """
     # check if the system is feasible throughout the year
-    is_feas = determine_feasibility(test_case)
+    is_feas, infeas_steps = determine_feasibility(test_case)
     # calculate curtailed wind and solar
     percent_curtailed = determine_curtailed_ren(test_case)
     # calculate average battery SOC
-    battery_SOC = determine_battery_SOC(test_case)
+    avg_SOC = determine_battery_SOC(test_case)
 
-    return {'feasibility': is_feas, 'percent_curtailed': percent_curtailed, 'battery_SOC': battery_SOC}
+    return {'feasibility': [is_feas, infeas_steps], 'percent_curtailed': percent_curtailed, 'avg_SOC': avg_SOC}
 
 def determine_feasibility(test_case):
-    # TODO FILL IN
-    return False
+    # sum over all generation
+    gen_timestep = test_case[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1)
+    total_gen = float(gen_timestep.sum(axis=0))
+    total_load = float(sum(test_case['load']))
+    net_feas = total_gen >= total_load
+    # store timesteps when load > gen
+    infeas_inds = [i for i in range(test_case.shape[0]) if gen_timestep.iloc[i] < test_case['load'].iloc[i]]
+    return net_feas, infeas_inds
 
 def determine_curtailed_ren(test_case):
     # TODO FILL IN
     return 0
 
 def determine_battery_SOC(test_case):
-    # TODO FILL IN
-    return []
+    batt_SOC = np.array(test_case['batt_SOC'])
+    tsm = 8760 # number of time steps per month
+    avg_batt = batt_SOC.reshape(-1, tsm).mean(axis=1)
+    return [avg_batt]
 
 def generate_dispatch_stack(test_case, day: pd.DatetimeIndex):
     """
