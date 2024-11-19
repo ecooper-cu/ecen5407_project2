@@ -33,9 +33,6 @@ m.new()
 unassigned = m.assign(inputs) # returns a list of unassigned variables if any
 print(unassigned)
 
-# Change the minimum battery SoC to 10%
-m.battery.value("batt_minimum_SOC", 10)
-
 #%% Run a simulation
 m.execute()
 
