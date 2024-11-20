@@ -98,70 +98,64 @@ def battery_dispatch_model(merged):
         merged["Renewable Generation (kW)"] = merged["PV Generation (kW)"] + merged["Wind Generation (kW)"]
 
         # Initialize SOC (state of charge)
-        merged["SOC"] = INITIAL_SOC  # Start at 50% SOC
-
-        # Calculate power excess/deficit
-        merged["Excess Power (kW)"] = merged["Renewable Generation (kW)"] - merged["Load (kW)"]
-        merged["Deficit Power (kW)"] = merged["Load (kW)"] - merged["Renewable Generation (kW)"]
-
-        # Masks for different conditions
-        load_below_geo = merged["Load (kW)"] <= GEOTHERMAL_CAPACITY
-        load_above_geo = ~load_below_geo
-
-        # Battery dispatch decisions – these steps take into account power limits on the battery as
-        # a result of the SOC. We're ignoring this for now because:
-        # 1) In practice, the battery would be limited much sooner than this charge limit would 
-        # kick in. Especially for charging, it's not possible to run at nameplate power right up to 
-        # 100% SOC (or even 95% SOC), because the battery has to taper with CV charging. SAM will 
-        # take care of this derating.
-        # 2) This isn't implemented correctly as is, and we don't think it's worth it at the moment
-        #charge_limit = (SOC_MAX - merged["SOC"]) * BATTERY_ENERGY_CAPACITY / (ROUNDTRIP_EFFICIENCY * DT)
-        #discharge_limit = (merged["SOC"] - SOC_MIN) * BATTERY_ENERGY_CAPACITY / DT
+        merged["SOC"] = 0.0  # Start at 50% SOC
+        prev_soc = INITIAL_SOC
 
         # Initialize battery target
         merged["Battery Power Target (kW)"] = 0.0
 
-        # Case 1: Load ≤ geothermal capacity
-        mask_charge = load_below_geo & (merged["Excess Power (kW)"] >= 0)
-        merged.loc[mask_charge, "Battery Power Target (kW)"] = -np.minimum(
-                merged.loc[mask_charge, "Excess Power (kW)"], BATTERY_MAX_CHARGE_POWER)
-        # merged.loc[mask_charge, "Battery Target (kW)"] = (
-        #         np.minimum(merged.loc[mask_charge, "Excess Power (kW)"], 
-        #                 np.minimum(BATTERY_POWER_NAMEPLATE, charge_limit[mask_charge]))
-        # )
-        
-        mask_discharge = load_below_geo & (merged["Excess Power (kW)"] < 0) & (merged["SOC"] > SOC_MIN)
-        merged.loc[mask_discharge, "Battery Power Target (kW)"] = np.minimum(
-                -merged.loc[mask_discharge, "Deficit Power (kW)"], BATTERY_MAX_DISCHARGE_POWER)
-        # merged.loc[mask_discharge, "Battery Target (kW)"] = (
-        #         -np.minimum(merged.loc[mask_discharge, "Deficit Power (kW)"], 
-        #                 np.minimum(BATTERY_POWER_NAMEPLATE, discharge_limit[mask_discharge]))
-        # )
+        # Loop through timesteps to update SOC incrementally
+        for t in range(len(merged)):
+                # Get previous SOC
+                if t >= 1:
+                        prev_soc = merged.at[t-1, "SOC"]
+                load = merged.at[t, "Load (kW)"]
+                renewable_generation = merged.at[t, "Renewable Generation (kW)"]
 
-        # Case 2: Load > geothermal capacity
-        adjusted_deficit = merged["Load (kW)"] - GEOTHERMAL_CAPACITY
-        mask_charge_high_load = load_above_geo & (merged["Excess Power (kW)"] > 0)
-        merged.loc[mask_charge_high_load, "Battery Power Target (kW)"] = -np.minimum(
-                merged.loc[mask_charge_high_load, "Excess Power (kW)"], -BATTERY_MAX_CHARGE_POWER)
-        # merged.loc[mask_charge_high_load, "Battery Target (kW)"] = (
-        #         np.minimum(merged.loc[mask_charge_high_load, "Excess Power (kW)"], 
-        #                 np.minimum(BATTERY_POWER_NAMEPLATE, charge_limit[mask_charge_high_load]))
-        # )
-        
-        mask_discharge_high_load = load_above_geo & (adjusted_deficit > 0) & (merged["SOC"] > SOC_MIN)
-        merged.loc[mask_discharge_high_load, "Battery Power Target (kW)"] = np.minimum(
-                merged.loc[mask_discharge_high_load, "Excess Power (kW)"], 
-                BATTERY_MAX_DISCHARGE_POWER)
-        # merged.loc[mask_discharge_high_load, "Battery Target (kW)"] = (
-        #         -np.minimum(adjusted_deficit[mask_discharge_high_load], 
-        #                 np.minimum(BATTERY_POWER_NAMEPLATE, discharge_limit[mask_discharge_high_load]))
-        # )
+                # Calculate excess and deficit power
+                excess_power = renewable_generation - load
+                deficit_power = load - renewable_generation
 
-        # Update SOC
-        # merged["SOC"] += (
-        #         merged["Battery Target (kW)"] * (ROUNDTRIP_EFFICIENCY ** (merged["Battery Target (kW)"] > 0)) * DT / BATTERY_ENERGY_CAPACITY
-        # )
-        # merged["SOC"] = np.clip(merged["SOC"], SOC_MIN, SOC_MAX)  # Ensure SOC stays within bounds
+                # Available charge and discharge power based on SOC. 
+                # In practice, the battery would be limited much sooner than this charge limit would 
+                # kick in. Especially for charging, it's not possible to run at nameplate power right up to 
+                # 100% SOC (or even 95% SOC), because the battery has to taper with CV charging. SAM will 
+                # take care of this derating.
+                # (SOC_MAX - current_soc) * BATTERY_ENERGY_CAPACITY calculates the amount of energy
+                # (in kWh) that the battery can accept. Dividing by the timestep converts this 
+                # energy capacity into a rate (in kW) for a 5-minute timestep. Dividing by the 
+                # charging efficiency accounts for losses during charging.
+                max_charge_power = min(BATTERY_MAX_CHARGE_POWER, (SOC_MAX - prev_soc) * BATTERY_ENERGY_CAPACITY / (CHARGING_EFFICIENCY * timestep))
+                max_discharge_power = min(BATTERY_MAX_DISCHARGE_POWER, (prev_soc - SOC_MIN) * BATTERY_ENERGY_CAPACITY / (DISCHARGING_EFFICIENCY * timestep))
+
+                # Dispatch logic
+                if load <= GEOTHERMAL_CAPACITY:
+                        if excess_power > 0:
+                                # Charge the battery with excess power
+                                charge_power = min(excess_power, max_charge_power)
+                                merged.at[t, "Battery Power Target (kW)"] = -charge_power  # Charging is negative
+                                soc_step = charge_power * CHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY
+                        elif deficit_power > 0 and prev_soc > SOC_MIN:
+                                # Discharge the battery to meet the load
+                                discharge_power = min(deficit_power, max_discharge_power)
+                                merged.at[t, "Battery Power Target (kW)"] = discharge_power  # Discharging is positive
+                                soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY
+                else:
+                        adjusted_deficit = load - GEOTHERMAL_CAPACITY
+                        if excess_power > 0:
+                                # Charge the battery with excess power
+                                charge_power = min(excess_power, max_charge_power)
+                                merged.at[t, "Battery Power Target (kW)"] = -charge_power
+                                soc_step = charge_power * CHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY
+                        elif adjusted_deficit > 0 and prev_soc > SOC_MIN:
+                                # Discharge the battery to meet the load
+                                discharge_power = min(adjusted_deficit, max_discharge_power)
+                                merged.at[t, "Battery Power Target (kW)"] = discharge_power
+                                soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY
+
+                # Clip SOC to its limits
+                new_soc = prev_soc + soc_step
+                merged.at[t, "SOC"] = np.clip(new_soc, SOC_MIN, SOC_MAX)
 
         return merged
 
@@ -210,7 +204,7 @@ timestep = 5/60 # 5-minute timestep in hours
 load = produce_load_dataframe(load_filepath='data/Project 2 - Load Profile.xlsx')
 gen = produce_generation_dataframe(m=m)
 
-# Merge the two dataframes
+#%% Merge the two dataframes
 merged = pd.merge(gen, load, on='Datetime', how='inner')
 
 # %% Run dispatch model
@@ -219,8 +213,9 @@ result = battery_dispatch_model(merged)
 # %% Generate some plots
 date_start = '2012-12-21 00:00:00'
 date_end = '2012-12-22 00:00:00'
-#result.set_index('Datetime', inplace=True)
+result.set_index('Datetime', inplace=True)
 pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)', 'Load (kW)', 'Battery Power Target (kW)'])
+pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['SOC'])
 
 # %% Print the battery utilization
 get_battery_utilization(result, m)
