@@ -14,6 +14,7 @@ import json
 import pandas as pd
 import pysam_helpers
 import load_inspection_helpers
+import pickle
 
 # %% Load the inputs from the JSON file
 # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
@@ -112,7 +113,7 @@ pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
 grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
-single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
+single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
 # Generate some plots
 date_start = '2012-07-27 00:00:00'
@@ -123,6 +124,21 @@ pysam_helpers.plot_values_by_time_range(df=wind_model_outputs['5 Minute Data'], 
 pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
 pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_to_grid', 'system_to_batt', 'system_to_grid'])
 
+# %% Save the dataframes as pickled objects
+# Saving/loading the dataframes in a CSV structure takes forever.
+# We can save the data in a more efficient way with pickled objects:
+im_a_pickle_dict = {
+        'pv_model_outputs' : pv_model_outputs['Lifetime 5 Minute Data'],
+        'wind_model_outputs' : wind_model_outputs['5 Minute Data'],
+        'battery_model_outputs': battery_model_outputs['Lifetime 5 Minute Data'],
+        'grid_model_outputs' : grid_model_outputs['Lifetime 5 Minute Data'],
+        'single_owner_model_outputs': single_owner_model_outputs['Lifetime 5 Minute Data']
+}
+
+for pickle_filename, model_output_df in im_a_pickle_dict.items():
+        filepath = '~/Downloads' + pickle_filename + '.pkl'
+        with open(filepath, 'wb') as f:
+                pickle.dump(model_output_df, f)
 # %% Inspect model outputs
 # First, pull the relevant columns from each module output DataFrame into one DataFrame for the 
 # system output
