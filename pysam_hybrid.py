@@ -165,7 +165,8 @@ system_df['Datetime'] = pd.to_datetime(system_df['Datetime'])
 merged = pd.merge(system_df, load, on='Datetime', how='inner')
 
 merged['Excess Generation (kW)'] = merged['Generation to Grid (kW)'] - merged['Load (kW)']
-merged['Unmet Load (kW)'] = merged['Load (kW)'] - merged['Generation to Grid (kW)']
+geothermal_capacity_kW = 77 * 0.95 * 1000
+merged['Unmet Load (kW)'] = merged['Load (kW)'] - merged['Generation to Grid (kW)'] - geothermal_capacity_kW
 
 # Calculate some metrics on the reliability
 threshold = 1e-3 # This is 0.1% of peak load

@@ -221,7 +221,7 @@ pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_ti
 get_battery_utilization(result, m)
 
 # %% Generate a csv with the dispatch target
-#result['Battery Power Target (kW)'].to_csv('data/PySam_Inputs/Hybrid_Project/dispatch_target_5min.csv', index=False)
+result['Battery Power Target (kW)'].to_csv('data/PySam_Inputs/Hybrid_Project/dispatch_target_5min.csv', index=False)
 
 # %% Generate a csv of system power output without the battery
 #result.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
