@@ -35,16 +35,24 @@ within_50_miles = southern_counties[southern_counties.geometry.intersects(buffer
 
 ## Step 4: Add a point for the proposed geothermal plant
 # Define the coordinates
-coords = Point(-115.636810, 33.158393)
+geo_coords = Point(-115.636810, 33.158393)
+pv_coords = Point(-115.5965, 32.6757)
 
 # Create a GeoDataFrame for Niland
-plant_location = gpd.GeoDataFrame(
-    [{'name': 'Geothermal_Plant', 'geometry': coords}],
+geo_plant_location = gpd.GeoDataFrame(
+    [{'name': 'Geothermal_Plant', 'geometry': geo_coords}],
+    crs="EPSG:4326"  # Use WGS84 (latitude and longitude)
+)
+
+# Create a GeoDataFrame for PV location
+pv_plant_location = gpd.GeoDataFrame(
+    [{'name': 'PV_Plant', 'geometry': pv_coords}],
     crs="EPSG:4326"  # Use WGS84 (latitude and longitude)
 )
 
 # Reproject to match other layers if needed
-plant_location = plant_location.to_crs(epsg=3310)
+geo_plant_location = geo_plant_location.to_crs(epsg=3310)
+pv_plant_location = pv_plant_location.to_crs(epsg=3310)
 
 #%%
 ## Step 5: Plot the map
@@ -54,8 +62,10 @@ fig, ax = plt.subplots(figsize=(10, 10))
 southern_counties.plot(ax=ax, color='lightgrey', edgecolor='black')
 san_diego.plot(ax=ax, color='blue', edgecolor='black')
 gpd.GeoSeries(buffer_union).plot(ax=ax, color='blue', alpha=0.3)
-within_50_miles.plot(ax=ax, color='red', alpha=0.5)
-plant_location.plot(ax=ax, color='black', marker='o', label='Geothermal Plant', markersize=50)
+within_50_miles.plot(ax=ax, color='darkgrey', alpha=0.5)
+geo_plant_location.plot(ax=ax, color='black', marker='o', label='Geothermal Plant', markersize=50)
+pv_plant_location.plot(ax=ax, color='tab:orange', marker='d', label='PV Plant', markersize=150)
+plt.legend()
 
 plt.title("Areas within 50 miles of San Diego County Border")
 plt.show()
