@@ -21,7 +21,7 @@ import pickle
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'Trial_Full_System_1' # change name!
+case_name = 'Trial_Full_System_Bigger_Battery' # change name!
 inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
