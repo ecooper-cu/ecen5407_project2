@@ -196,6 +196,13 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     # save figure
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
 
+def add_geothermal(test_case, gen_sources):
+    excess_gen = test_case[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - test_case['load']
+    geothermal_capacity_kW = 77 * 0.95 * 1000
+    test_case['Unmet Load (kW)'] = test_case['Load (kW)'] - test_case['Generation to Grid (kW)'] - geothermal_capacity_kW
+    test_case['Geothermal Generation (kW)'] = test_case['Load (kW)'] - test_case['Generation to Grid (kW)']
+    return test_case
+
 def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_name = ''):
     """
     Store test case results
@@ -213,7 +220,8 @@ def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_na
 
 if __name__ == '__main__':
     # names:
-    names = ['Battery Discharge Power (KW)', 'Battery Charge Power (KW)', 'PV to Grid', 'Battery SOC', 'Net Wind Generation (KW)']
+    available_gen_sources = ['Battery Discharge Power (kW)', 'Battery Charge Power (kW)', 
+                             'PV to Grid (kW)', 'Battery SOC', 'Net Wind Generation (kW)']
     # read in stored data for test case
     case_name = 'base_case0'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_gen.csv'))
