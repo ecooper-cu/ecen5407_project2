@@ -148,6 +148,9 @@ system_output_dict = {'pv':pv_model_outputs,
                       }
 test_case = pysam_helpers.merge_subsystem_5min_dfs(system_output_dict)
 
+if store_case:
+        test_case.to_csv(f'data/test_cases/{case_name}/{case_name}.csv')
+
 # %% Generate some plots
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
