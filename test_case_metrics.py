@@ -224,20 +224,22 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     curr_gen_0 = np.array(generation_stack['PV to Grid (kW)'])
     plt.plot(x, np.array(generation_stack['Net Wind Generation (kW)']) + curr_gen_0, label = 'Wind', color =  color_dict['Net Wind Generation (kW)'])
     curr_gen_1 = curr_gen_0 + np.array(generation_stack['Net Wind Generation (kW)'])
-    plt.plot(x, np.array(generation_stack['Geothermal Generation (kW)']) + curr_gen_1, label = 'Geothermal', color =  color_dict['Geothermal Generation (kW)'])
-    curr_gen_2 = curr_gen_1 + np.array(generation_stack['Geothermal Generation (kW)'])
-    plt.plot(x, np.array(generation_stack['Battery Discharge Power (kW)']) + curr_gen_2, label = 'Batt', color =  color_dict['Battery Discharge Power (kW)'])
+    plt.plot(x, np.array(generation_stack['Battery Discharge Power (kW)']) + curr_gen_1, label = 'Battery', color =  color_dict['Battery Discharge Power (kW)'])
+    curr_gen_2 = curr_gen_1 + np.array(generation_stack['Battery Discharge Power (kW)'])
+    plt.plot(x, np.array(generation_stack['Geothermal Generation (kW)']) + curr_gen_2, label = 'Geothermal', color =  color_dict['Geothermal Generation (kW)'])
     # fill between lines
     plt.fill_between(x, [0] * len(x), curr_gen_0, color = color_dict['PV to Grid (kW)'], alpha = alpha)
     plt.fill_between(x, curr_gen_0, curr_gen_1, color = color_dict['Net Wind Generation (kW)'], alpha = alpha)
-    plt.fill_between(x, curr_gen_2, curr_gen_2, color = color_dict['Geothermal Generation (kW)'], alpha = alpha)
-    plt.fill_between(x, curr_gen_2, curr_gen_2 + np.array(generation_stack['Battery Discharge Power (kW)']), color = color_dict['Battery Discharge Power (kW)'], alpha = alpha)
-    plt.xlabel('Hourly Timestep')
+    plt.fill_between(x, curr_gen_1, curr_gen_2, color = color_dict['Battery Discharge Power (kW)'], alpha = alpha)
+    plt.fill_between(x, curr_gen_2, curr_gen_2 + np.array(generation_stack['Geothermal Generation (kW)']), color = color_dict['Geothermal Generation (kW)'], alpha = alpha)
+    plt.xlabel('Timestep (5 min interval)')
     plt.ylabel('Generation Level')
     plt.title('Generation Dispatch')
     plt.legend()
     # save figure
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
+    plt.show()
+    x = 10
 
 def add_geothermal_timeseries(test_case, geo_mw = 77, geo_cf = 0.95):
     unmet_load = test_case['Load (kW)'] - test_case['System to Grid (kW)'] # remaining load
@@ -265,7 +267,7 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'Trial_Full_System_1'
+    case_name = 'Trial_Full_System_Bigger_Battery'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
@@ -300,5 +302,4 @@ if __name__ == "__main__":
     store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics, gen_dict, day_to_study)
 
     # # plot figure for dispatch
-    # TO-DO: Fix plot
-    #plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
+    plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
