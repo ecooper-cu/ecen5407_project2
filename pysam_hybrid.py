@@ -152,14 +152,15 @@ if store_case:
         test_case.to_csv(f'data/test_cases/{case_name}/{case_name}.csv')
 
 # %% Generate some plots
+if 'Datetime' in test_case.columns:
+        test_case.set_index('Datetime', inplace=True)
+
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
 
-pysam_helpers.plot_values_by_time_range(df=pv_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['gen'])
-pysam_helpers.plot_values_by_time_range(df=wind_model_outputs['5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['gen'])
+columns_to_plot = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)', 'Load (kW)']
+pysam_helpers.plot_values_by_time_range(df=test_case, start_time=date_start, end_time=date_end, y_columns=columns_to_plot)
 pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
-pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_to_grid', 'system_to_batt', 'system_to_grid'])
-
 # %% Save the dataframes as pickled objects
 # Saving/loading the dataframes in a CSV structure takes forever.
 # We can save the data in a more efficient way with pickled objects:
