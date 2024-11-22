@@ -67,7 +67,7 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during evening peak
     start_time = pd.to_datetime("16:00").time()  # 4 PM
     end_time = pd.to_datetime("19:00").time()    # 7 PM
-    peak_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
+    peak_df = test_case[(test_case['Datetime'].dt.time >= start_time) & (test_case['Datetime'].dt.time <= end_time)]
     peak_excess_gen = peak_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - peak_df['load']
     total_excess_gen_peak = float(peak_excess_gen.sum(axis=0))
     avg_excess_gen_peak = total_excess_gen_peak/peak_df.shape[0]
@@ -75,7 +75,7 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during midday
     start_time = pd.to_datetime("11:00").time()  # 11 AM
     end_time = pd.to_datetime("15:00").time()    # 3 PM
-    midday_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
+    midday_df = test_case[(test_case['Datetime'].dt.time >= start_time) & (test_case['Datetime'].dt.time <= end_time)]
     midday_excess_gen = midday_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - midday_df['load']
     total_excess_gen_midday = float(midday_excess_gen.sum(axis=0))
     avg_excess_gen_midday = total_excess_gen_midday/midday_df.shape[0]
@@ -83,7 +83,7 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during night
     start_time = pd.to_datetime("21:00").time()  # 9 PM
     end_time = pd.to_datetime("5:00").time()    # 5 AM
-    nighttime_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
+    nighttime_df = test_case[(test_case['Datetime'].dt.time >= start_time) & (test_case['Datetime'].dt.time <= end_time)]
     nighttime_excess_gen = nighttime_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - nighttime_df['load']
     total_excess_gen_nighttime = float(nighttime_excess_gen.sum(axis=0))
     avg_excess_gen_nighttime = total_excess_gen_nighttime/nighttime_df.shape[0]
