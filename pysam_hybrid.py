@@ -19,6 +19,8 @@ import load_inspection_helpers
 # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
+store_case = True # set to False if you don't want to generate a new case / write over existing case
+case_name = 'TEST_CASE' # change name!
 inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
@@ -32,6 +34,9 @@ m.new()
 # %% Load the inputs from the JSON file into the main module
 unassigned = m.assign(inputs) # returns a list of unassigned variables if any
 print(unassigned)
+
+# Change the minimum battery SoC to 10%
+m.battery.value("batt_minimum_SOC", 10)
 
 #%% Run a simulation
 m.execute()
@@ -106,13 +111,35 @@ print(f'The battery is {battery_connection_type} connected.')
 print(f'The battery charges at {battery_charge_efficiency:.2f}% efficiency')
 print(f'The battery discharges at {battery_discharge_efficiency:.2f}% efficiency')
 print(f'The total installed cost for the battery system is: ${battery_cost:.2f}')
+# store outputs in dict
+system_info = {
+        'PV System Size': pv_capacity_kWdc,
+        'PV AC Capacity': total_inverter_capacity,
+        'PV AC:DC Ratio': pv_dcac_ratio,
+        'PV System Span': pv_land_area,
+        'PV Cost': pv_cost,
+        'Wind System Size': wind_capacity_kWac,
+        'Wind System Span': wind_land_area,
+        'Wind Cost': wind_cost,
+        'Battery Nominal Power': battery_power_kWdc,
+        'Battery Capacity': battery_capacity_kWhdc,
+        'Battery Discharge (Hours)': battery_time_at_max_discharge,
+        'Battery Connection': battery_connection_type,
+        'Battery Charge Efficiency': battery_charge_efficiency,
+        'Battery Discharge Efficiency': battery_discharge_efficiency,
+        'Battery Cost': battery_cost,
+        'System Cost': system_cost
+}
+if store_case:
+    pysam_helpers.store_system_info(case_name, system_info)
+
 
 # Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
 grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
-single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
+single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
 # Generate some plots
 date_start = '2012-07-27 00:00:00'
@@ -123,21 +150,6 @@ pysam_helpers.plot_values_by_time_range(df=wind_model_outputs['5 Minute Data'], 
 pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
 pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_to_grid', 'system_to_batt', 'system_to_grid'])
 
-# %% Save the dataframes as pickled objects
-# Saving/loading the dataframes in a CSV structure takes forever.
-# We can save the data in a more efficient way with pickled objects:
-im_a_pickle_dict = {
-        'pv_model_outputs' : pv_model_outputs['Lifetime 5 Minute Data'],
-        'wind_model_outputs' : wind_model_outputs['5 Minute Data'],
-        'battery_model_outputs': battery_model_outputs['Lifetime 5 Minute Data'],
-        'grid_model_outputs' : grid_model_outputs['Lifetime 5 Minute Data'],
-        'single_owner_model_outputs': single_owner_model_outputs['Lifetime 5 Minute Data']
-}
-
-for pickle_filename, model_output_df in im_a_pickle_dict.items():
-        filepath = '~/Downloads' + pickle_filename + '.pkl'
-        with open(filepath, 'wb') as f:
-                pickle.dump(model_output_df, f)
 # %% Inspect model outputs
 # First, pull the relevant columns from each module output DataFrame into one DataFrame for the 
 # system output
@@ -180,8 +192,7 @@ system_df['Datetime'] = pd.to_datetime(system_df['Datetime'])
 merged = pd.merge(system_df, load, on='Datetime', how='inner')
 
 merged['Excess Generation (kW)'] = merged['Generation to Grid (kW)'] - merged['Load (kW)']
-geothermal_capacity_kW = 77 * 0.95 * 1000
-merged['Unmet Load (kW)'] = merged['Load (kW)'] - merged['Generation to Grid (kW)'] - geothermal_capacity_kW
+merged['Unmet Load (kW)'] = merged['Load (kW)'] - merged['Generation to Grid (kW)']
 
 # Calculate some metrics on the reliability
 threshold = 1e-3 # This is 0.1% of peak load
