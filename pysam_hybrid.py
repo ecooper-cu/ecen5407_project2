@@ -20,6 +20,8 @@ import pickle
 # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
+store_case = True # set to False if you don't want to generate a new case / write over existing case
+case_name = 'TEST_CASE' # change name!
 inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
@@ -107,6 +109,28 @@ print(f'The battery is {battery_connection_type} connected.')
 print(f'The battery charges at {battery_charge_efficiency:.2f}% efficiency')
 print(f'The battery discharges at {battery_discharge_efficiency:.2f}% efficiency')
 print(f'The total installed cost for the battery system is: ${battery_cost:.2f}')
+# store outputs in dict
+system_info = {
+        'PV System Size': pv_capacity_kWdc,
+        'PV AC Capacity': total_inverter_capacity,
+        'PV AC:DC Ratio': pv_dcac_ratio,
+        'PV System Span': pv_land_area,
+        'PV Cost': pv_cost,
+        'Wind System Size': wind_capacity_kWac,
+        'Wind System Span': wind_land_area,
+        'Wind Cost': wind_cost,
+        'Battery Nominal Power': battery_power_kWdc,
+        'Battery Capacity': battery_capacity_kWhdc,
+        'Battery Discharge (Hours)': battery_time_at_max_discharge,
+        'Battery Connection': battery_connection_type,
+        'Battery Charge Efficiency': battery_charge_efficiency,
+        'Battery Discharge Efficiency': battery_discharge_efficiency,
+        'Battery Cost': battery_cost,
+        'System Cost': system_cost
+}
+if store_case:
+    pysam_helpers.store_system_info(case_name, system_info)
+
 
 # Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
@@ -173,7 +197,6 @@ pysam_helpers.plot_values_by_time_range(df=system_df, start_time=date_start, end
 # %% Compare load to generation
 # Build a dataframe of load data
 load = load_inspection_helpers.format_load_data(load_filepath='data/Project 2 - Load Profile.xlsx')
-load['Load (kW)'] = load['Load (MW)'] * 1000
 
 # Merge the two dataframes
 system_df.reset_index(inplace=True)
