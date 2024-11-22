@@ -1,6 +1,7 @@
 import pandas as pd 
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+import os
 
 # Define some helper functions to manage the model outputs
 def interval_to_date_string(interval, interval_type, year):
@@ -187,3 +188,12 @@ def manage_leap_years(df):
 
     # Return the adjusted DataFrame
     return df
+
+def store_system_info(case_name, system_info):
+    # create/locate directory for test case
+    os.makedirs(os.path.join('data', 'test_cases', case_name), exist_ok = True)
+    # store output data
+    si_df = pd.DataFrame(system_info, index = [0])
+    si_df.to_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
+
+
