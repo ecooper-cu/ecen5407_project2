@@ -103,6 +103,8 @@ def format_load_data(load_filepath):
     # Convert all strings to datetime 
     load['Datetime'] = load['Datetime'].apply(parse_datestring)
 
+    load['Load (kW)'] = load['Load (MW)'] * 1000
+
     return load
 
 def prepare_wind_data(wind_filepath, is_offshore=False):

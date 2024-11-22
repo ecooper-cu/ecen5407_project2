@@ -184,7 +184,6 @@ pysam_helpers.plot_values_by_time_range(df=system_df, start_time=date_start, end
 # %% Compare load to generation
 # Build a dataframe of load data
 load = load_inspection_helpers.format_load_data(load_filepath='data/Project 2 - Load Profile.xlsx')
-load['Load (kW)'] = load['Load (MW)'] * 1000
 
 # Merge the two dataframes
 system_df.reset_index(inplace=True)
