@@ -29,11 +29,14 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
     if not is_feas:
         unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
-    percent_curtailed = determine_curtailed_ren(test_case)
+    curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=0.001)
+    energy_curtailed = curtailment_report['Curtailed energy in year 1 (kWh)']
+    percent_curtailed = curtailment_report['Curtailed energy in year 1 (%)']
     # calculate average battery SOC
     avg_cap = determine_battery_cap(test_case, test_case_system_info)
 
     return {'feasibility': [is_feas, infeas_steps, unmet_load_metrics],
+             'energy_curtailed': energy_curtailed,
              'percent_curtailed': percent_curtailed, 
              'avg_battery_capacity_factor': avg_cap}
 
@@ -124,7 +127,7 @@ def calculate_curtailment_metrics(test_case, excess_threshold_percent):
     curtailment_percent = (curtailment_magnitude / year_1_generation_kwh) * 100
 
     metrics = {'Curtailed energy in year 1 (kWh)': curtailment_magnitude, 
-               'curtailed energy in year 1 (%)': curtailment_percent}
+               'Curtailed energy in year 1 (%)': curtailment_percent}
 
     return metrics
 
@@ -273,9 +276,6 @@ if __name__ == '__main__':
 
     # add the load timeseries to the test case
     test_case = add_load_to_test_case(test_case=test_case, load_df=load)
-    
-    # calculate curtailment
-    curtailment_metrics = calculate_curtailment_metrics(test_case=test_case, excess_threshold_percent=0.01)
 
     # generate dispatch stack
     gen_dict, excess_dict = generate_dispatch_stack(test_case, [196, 210])
