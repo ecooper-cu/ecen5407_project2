@@ -234,6 +234,10 @@ if __name__ == '__main__':
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_gen.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
+    # Read in stored data for load
+    load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
+
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
 
