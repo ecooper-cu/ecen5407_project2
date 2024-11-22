@@ -21,7 +21,7 @@ import pickle
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'TEST_CASE' # change name!
+case_name = 'Trial_Full_System_1' # change name!
 inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
@@ -132,6 +132,7 @@ if store_case:
     pysam_helpers.store_system_info(case_name, system_info)
 
 
+# %% Store the outputs so we can generate a test case analysis!! 
 # Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
@@ -139,7 +140,15 @@ battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.batt
 grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
 single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
-# Generate some plots
+#%% 
+# Generate a system output dataframe
+system_output_dict = {'pv':pv_model_outputs, 
+                      'wind': wind_model_outputs,
+                      'battery': battery_model_outputs
+                      }
+test_case = pysam_helpers.merge_subsystem_5min_dfs(system_output_dict)
+
+# %% Generate some plots
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
 
