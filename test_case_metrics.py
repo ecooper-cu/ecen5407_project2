@@ -4,6 +4,7 @@ import json
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import load_inspection_helpers
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -19,6 +20,9 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
      Return:
      Dictionary with stored metrics
     """
+    # Ensure that the 'Datetime' column in the test case is full of Datetime objects
+    test_case['Datetime'] = pd.to_datetime(test_case['Datetime'])
+    
     # check if the system is feasible throughout the year
     test_case, is_feas, infeas_steps = determine_feasibility(test_case)
     unmet_load_metrics, excess_gen_metrics = {}, {}
@@ -63,7 +67,7 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during evening peak
     start_time = pd.to_datetime("16:00").time()  # 4 PM
     end_time = pd.to_datetime("19:00").time()    # 7 PM
-    peak_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    peak_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
     peak_excess_gen = peak_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - peak_df['load']
     total_excess_gen_peak = float(peak_excess_gen.sum(axis=0))
     avg_excess_gen_peak = total_excess_gen_peak/peak_df.shape[0]
@@ -71,7 +75,7 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during midday
     start_time = pd.to_datetime("11:00").time()  # 11 AM
     end_time = pd.to_datetime("15:00").time()    # 3 PM
-    midday_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    midday_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
     midday_excess_gen = midday_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - midday_df['load']
     total_excess_gen_midday = float(midday_excess_gen.sum(axis=0))
     avg_excess_gen_midday = total_excess_gen_midday/midday_df.shape[0]
@@ -79,12 +83,15 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     # calculate excess generation during night
     start_time = pd.to_datetime("21:00").time()  # 9 PM
     end_time = pd.to_datetime("5:00").time()    # 5 AM
-    nighttime_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    nighttime_df = test_case[(test_case['Datetime'] >= start_time) & (test_case['Datetime'] <= end_time)]
     nighttime_excess_gen = nighttime_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - nighttime_df['load']
     total_excess_gen_nighttime = float(nighttime_excess_gen.sum(axis=0))
     avg_excess_gen_nighttime = total_excess_gen_nighttime/nighttime_df.shape[0]
     excess_gen_dict.update({'total_excess_gen_nighttime': total_excess_gen_peak, 'avg_excess_gen_peak': avg_excess_gen_peak})
     return 
+
+def add_load_to_test_case(test_case:pd.DataFrame, load_df:pd.DataFrame):
+    pass
 
 
 def determine_curtailed_ren(test_case):
@@ -226,6 +233,10 @@ if __name__ == '__main__':
     case_name = 'base_case0'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_gen.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
+
+    # Read in stored data for load
+    load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
