@@ -4,6 +4,7 @@ import json
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import load_inspection_helpers
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -19,7 +20,9 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
      Return:
      Dictionary with stored metrics
     """
+    # Ensure that the 'Datetime' column in the test case is full of Datetime objects
     test_case['Datetime'] = pd.to_datetime(test_case['Datetime'])
+    
     # check if the system is feasible throughout the year
     test_case, is_feas, infeas_steps = determine_feasibility(test_case)
     unmet_load_metrics = {}
@@ -27,11 +30,14 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
     if not is_feas:
         unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
-    percent_curtailed = determine_curtailed_ren(test_case)
+    curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=0.001)
+    energy_curtailed = curtailment_report['Curtailed energy in year 1 (kWh)']
+    percent_curtailed = curtailment_report['Curtailed energy in year 1 (%)']
     # calculate average battery SOC
     avg_cap = determine_battery_cap(test_case, test_case_system_info)
 
     return {'feasibility': [is_feas, infeas_steps, unmet_load_metrics],
+             'energy_curtailed': energy_curtailed,
              'percent_curtailed': percent_curtailed, 
              'avg_battery_capacity_factor': avg_cap}
 
@@ -90,10 +96,43 @@ def calculate_excess_generation(test_case:pd.DataFrame):
     excess_gen_dict.update({'total_excess_gen_nighttime': total_excess_gen_nighttime, 'avg_excess_gen_nighttime': avg_excess_gen_nighttime})
     return 
 
+def add_load_to_test_case(test_case:pd.DataFrame, load_df:pd.DataFrame):
+    # Merge the two dataframes
+    merged_df = pd.merge(test_case, load_df, on='Datetime', how='inner')
+    # Return the merged value
+    return merged_df
 
-def determine_curtailed_ren(test_case):
-    # TODO FILL IN
-    return 0
+def calculate_curtailment_metrics(test_case, excess_threshold_percent):
+    # Define a threshold over which we will consider generation to be excessive
+    # In this case, we choose a threshold value that is some percentage of the peak load.
+    # I.e., if the threshold percentage is 0.1%, and the peak load is 100kW, then we are 
+    # considering any generation over the load + 100W to be excessive.
+    excess_threshold = (test_case['Load (kW)'].max()) * excess_threshold_percent
+    
+    # Find the difference between net generation and the load. Net excess generation is positive.
+    # We're looking at 'Generation to Grid (kW)' here, which is the net uncurtailed generation from
+    # wind, pv, and battery combined with the unramped geothermal generation (rectangular).
+    test_case['Excess Generation (kW)'] = test_case['Generation to Grid (kW)'] - test_case['Load (kW)']
+    
+    # Take a slice of the net excess generation based on our threshold
+    curtailment_mask = test_case['Excess Generation (kW)'] > excess_threshold
+    # This is a time series of energy generation that exceeds our threshold. Each value is the 
+    # excess energy generation during the 5 minute window, expressed in kWh
+    curtailed_generation_ts = test_case['Excess Generation (kW)'][curtailment_mask] * (5/60) 
+    
+    # Find the magnitude of the curtailment in absolute
+    curtailment_magnitude = curtailed_generation_ts.sum()
+    
+    # Find the magnitude of the curtailment in percent
+    # To do this, we first need to know the uncurtailed and unramped generation
+    year_1_mask = test_case['Datetime'] < pd.Timestamp(f'2013-01-01 00:00:00')
+    year_1_generation_kwh = test_case.loc[year_1_mask, 'Energy to Grid (kWh)'].sum()
+    curtailment_percent = (curtailment_magnitude / year_1_generation_kwh) * 100
+
+    metrics = {'Curtailed energy in year 1 (kWh)': curtailment_magnitude, 
+               'Curtailed energy in year 1 (%)': curtailment_percent}
+
+    return metrics
 
 def determine_battery_cap(test_case, tc_si):
     # calculate capacity factor at hourly timestep
@@ -241,6 +280,9 @@ if __name__ == '__main__':
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
+
+    # add the load timeseries to the test case
+    test_case = add_load_to_test_case(test_case=test_case, load_df=load)
 
     # generate dispatch stack
     gen_dict, excess_dict = generate_dispatch_stack(test_case, [196, 210])
