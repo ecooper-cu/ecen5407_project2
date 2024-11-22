@@ -281,6 +281,10 @@ if __name__ == '__main__':
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
 
+    # read in stored data for load
+    load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
+
     # add the load timeseries to the test case
     test_case = add_load_to_test_case(test_case=test_case, load_df=load)
 
