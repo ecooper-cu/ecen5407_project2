@@ -128,7 +128,7 @@ system_info = {
         'Battery Charge Efficiency': battery_charge_efficiency,
         'Battery Discharge Efficiency': battery_discharge_efficiency,
         'Battery Cost': battery_cost,
-        'System Cost': system_cost
+        'System Cost': m.singleowner.Outputs.cost_installed
 }
 if store_case:
     pysam_helpers.store_system_info(case_name, system_info)

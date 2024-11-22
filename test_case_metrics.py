@@ -20,13 +20,18 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
      Dictionary with stored metrics
     """
     # check if the system is feasible throughout the year
-    is_feas, infeas_steps = determine_feasibility(test_case)
+    test_case, is_feas, infeas_steps = determine_feasibility(test_case)
+    unmet_load_metrics, excess_gen_metrics = {}, {}
+    if not is_feas:
+        unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
     percent_curtailed = determine_curtailed_ren(test_case)
     # calculate average battery SOC
     avg_cap = determine_battery_cap(test_case, test_case_system_info)
 
-    return {'feasibility': [is_feas, infeas_steps], 'percent_curtailed': percent_curtailed, 'avg_battery_capacity_factor': avg_cap}
+    return {'feasibility': [is_feas, infeas_steps, unmet_load_metrics],
+             'percent_curtailed': percent_curtailed, 
+             'avg_battery_capacity_factor': avg_cap}
 
 def determine_feasibility(test_case):
     # sum over all generation
@@ -35,8 +40,52 @@ def determine_feasibility(test_case):
     total_load = float(sum(test_case['load']))
     net_feas = total_gen >= total_load
     # store timesteps when load > gen
-    infeas_inds = [i for i in range(test_case.shape[0]) if gen_timestep.iloc[i] < test_case['load'].iloc[i]]
-    return net_feas, infeas_inds
+    infeas_timesteps = [gen_timestep.iloc[i]['DateTime'] for i in range(test_case.shape[0]) if gen_timestep.iloc[i] < test_case['load'].iloc[i]]
+    test_case['Unmet Load'] = gen_timestep - test_case['load']
+    return test_case, net_feas, infeas_timesteps
+
+def calculate_reliability_margin(test_case:pd.DataFrame, threshold = 1e-3):
+    unmet_threshold = (test_case['load'].max()) * threshold # calculating .1% of peak load
+    unmet_load_mask = test_case['Unmet Load'] > unmet_threshold # whether unmet load is greater than .1% peak load
+    unmet_load_instances = unmet_load_mask.sum() # number of unmet loads above threshold
+    unmet_load_magnitude = test_case['Unmet Load'][unmet_load_mask].sum() # total amount of unmet load above threshold
+    unmet_load_percent = (unmet_load_magnitude / (test_case['load'].sum())) * 100 # what percent of load is unmet
+    return {'number_unmet_load': unmet_load_instances, 'total_unmet_load': unmet_load_magnitude, 'unmet_load_percent': unmet_load_percent}
+
+def calculate_excess_generation(test_case:pd.DataFrame):
+    # TODO: histogram of excess generation
+    excess_gen_dict = {}
+    # calculate total excess generation
+    excess_gen = test_case[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - test_case['load']
+    total_excess_gen_annual = float(excess_gen.sum(axis=0))
+    avg_excess_gen_annual = total_excess_gen_annual/test_case.shape[0]
+    excess_gen_dict.update({'total_excess_gen_annual': total_excess_gen_annual, 'avg_excess_gen_annual':avg_excess_gen_annual})
+    # calculate excess generation during evening peak
+    start_time = pd.to_datetime("16:00").time()  # 4 PM
+    end_time = pd.to_datetime("19:00").time()    # 7 PM
+    peak_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    peak_excess_gen = peak_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - peak_df['load']
+    total_excess_gen_peak = float(peak_excess_gen.sum(axis=0))
+    avg_excess_gen_peak = total_excess_gen_peak/peak_df.shape[0]
+    excess_gen_dict.update({'total_excess_gen_peak': total_excess_gen_peak, 'avg_excess_gen_peak': avg_excess_gen_peak})
+    # calculate excess generation during midday
+    start_time = pd.to_datetime("11:00").time()  # 11 AM
+    end_time = pd.to_datetime("15:00").time()    # 3 PM
+    midday_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    midday_excess_gen = midday_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - midday_df['load']
+    total_excess_gen_midday = float(midday_excess_gen.sum(axis=0))
+    avg_excess_gen_midday = total_excess_gen_midday/midday_df.shape[0]
+    excess_gen_dict.update({'total_excess_gen_midday': total_excess_gen_midday, 'avg_excess_gen_midday': avg_excess_gen_midday})
+    # calculate excess generation during night
+    start_time = pd.to_datetime("21:00").time()  # 9 PM
+    end_time = pd.to_datetime("5:00").time()    # 5 AM
+    nighttime_df = test_case[(test_case['datetime'].dt.time >= start_time) & (test_case['datetime'].dt.time <= end_time)]
+    nighttime_excess_gen = nighttime_df[['pv', 'wind', 'geothermal', 'batt']].sum(axis=1) - nighttime_df['load']
+    total_excess_gen_nighttime = float(nighttime_excess_gen.sum(axis=0))
+    avg_excess_gen_nighttime = total_excess_gen_nighttime/nighttime_df.shape[0]
+    excess_gen_dict.update({'total_excess_gen_nighttime': total_excess_gen_peak, 'avg_excess_gen_peak': avg_excess_gen_peak})
+    return 
+
 
 def determine_curtailed_ren(test_case):
     # TODO FILL IN
@@ -87,15 +136,15 @@ def generate_dispatch_stack(test_case, index_range:list):
         load = determine_resource_use(load, row['pv'], pv_gen, pv_excess, ind)
         if load == 0:
             continue
-        # TODO check order on this
-        # utilize available geothermal
-        load= determine_resource_use(load, row['geothermal'], geo_gen, geo_excess, ind)
-        if load == 0:
-            continue
         # utilize available battery
         load = determine_resource_use(load, row['batt'], batt_gen, batt_excess, ind)
         if load == 0:
             continue
+        # utilize available geothermal
+        load= determine_resource_use(load, row['geothermal'], geo_gen, geo_excess, ind)
+        if load == 0:
+            continue
+
     # return dictionaries
     gen_dict = {'wind': wind_gen, 'pv': pv_gen, 'geothermal': geo_gen, 'batt': batt_gen}
     excess_dict = {'wind': wind_excess, 'pv': pv_excess, 'geothermal': geo_excess, 'batt': batt_excess}
@@ -163,6 +212,8 @@ def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_na
 
 
 if __name__ == '__main__':
+    # names:
+    names = ['Battery Discharge Power (KW)', 'Battery Charge Power (KW)', 'PV to Grid', 'Battery SOC', 'Net Wind Generation (KW)']
     # read in stored data for test case
     case_name = 'base_case0'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_gen.csv'))
