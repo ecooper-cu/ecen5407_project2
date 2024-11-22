@@ -105,18 +105,24 @@ def determine_battery_cap(test_case, tc_si):
         monthly_avg_cf.append(float(np.mean(cf)))
     return monthly_avg_cf
 
-def generate_dispatch_stack(test_case, index_range:list):
+def generate_dispatch_stack(test_case, day_to_study):
     """
     On a given day, create the dispatch stack at hourly time steps.
     NOTE: this does not calculate battery charging, only discharging
+    
+    Parameters:
+        - test_case: The dictionary of system output
+        - day_to_study: A string indicating the day that you want to generate a dispatch stack for
 
     Return:
     Dictionary with time series generation for each generation source
     Dictionary with excess generation
     """
     # TODO replace index_range with a date, then pull the load and generation associated with that date
-    day_gen = test_case.iloc[index_range[0]: index_range[1]]
+    day_gen = [test_case['Datetime'].dt.date == pd.to_datetime(day_to_study).date()].reset_index(drop=True)
     # store generation levels at every time step and excess generation
+    # Generation from each type of resource that must be dispatched to meet the load for the given 
+    # day
     pv_gen = [0]* day_gen.shape[0]
     wind_gen = [0]* day_gen.shape[0]
     geo_gen = [0]* day_gen.shape[0]
@@ -127,21 +133,20 @@ def generate_dispatch_stack(test_case, index_range:list):
     batt_excess = [0]* day_gen.shape[0]
     # at each time step, calculate power used
     for i, row in day_gen.iterrows():
-        ind = i - index_range[0]
         # start by utilizing available wind and solar
         load = row['load']
-        load = determine_resource_use(load, row['wind'], wind_gen, wind_excess, ind)
+        load = determine_resource_use(load, row['wind'], wind_gen, wind_excess, i)
         if load == 0:
             continue
-        load = determine_resource_use(load, row['pv'], pv_gen, pv_excess, ind)
+        load = determine_resource_use(load, row['pv'], pv_gen, pv_excess, i)
         if load == 0:
             continue
         # utilize available battery
-        load = determine_resource_use(load, row['batt'], batt_gen, batt_excess, ind)
+        load = determine_resource_use(load, row['batt'], batt_gen, batt_excess, i)
         if load == 0:
             continue
         # utilize available geothermal
-        load= determine_resource_use(load, row['geothermal'], geo_gen, geo_excess, ind)
+        load= determine_resource_use(load, row['geothermal'], geo_gen, geo_excess, i)
         if load == 0:
             continue
 
@@ -231,7 +236,8 @@ if __name__ == '__main__':
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
 
     # generate dispatch stack
-    gen_dict, excess_dict = generate_dispatch_stack(test_case, [196, 210])
+    day_to_study = '2012-07-27'
+    gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
     # store results
     store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics, gen_dict, 'TEST_196_210')
