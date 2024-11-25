@@ -238,8 +238,7 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     plt.legend()
     # save figure
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
-    plt.show()
-    x = 10
+
 
 def add_geothermal_timeseries(test_case, geo_mw = 77, geo_cf = 0.95):
     unmet_load = test_case['Load (kW)'] - test_case['System to Grid (kW)'] # remaining load
