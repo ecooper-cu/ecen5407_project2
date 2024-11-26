@@ -257,7 +257,7 @@ gen = produce_generation_dataframe(m=m)
 merged = pd.merge(gen, load, on='Datetime', how='inner')
 
 # %% Run dispatch model
-result = battery_dispatch_model(merged)
+result = battery_dispatch_model_with_ramp_limits(merged)
 
 # %% Generate some plots
 date_start = '2012-12-21 00:00:00'
