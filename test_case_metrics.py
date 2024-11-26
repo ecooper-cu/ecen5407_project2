@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import load_inspection_helpers
+import calendar
+
+# Geothermal stuff
+GEOTHERMAL_NAMEPLATE_MW = 77
+GEOTHERMAL_CAPACITY_FACTOR = 0.95
+GEOTHERMAL_CAPACITY = GEOTHERMAL_NAMEPLATE_MW * GEOTHERMAL_CAPACITY_FACTOR * 1000    # Capacity in kW
+GEOTHERMAL_MIN_GENERATION = 0.1 * GEOTHERMAL_CAPACITY
+GEOTHERMAL_RAMP_RATE = 0.05
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -23,19 +31,16 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
     test_case, is_feas = determine_feasibility(test_case)
     unmet_load_metrics = {}
     excess_gen_metrics = calculate_excess_generation(test_case)
-    if not is_feas:
-        unmet_load_metrics = calculate_reliability_margin(test_case)
+    unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
     curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=1e-5)
-    energy_curtailed = curtailment_report['Curtailed energy in year 1 (kWh)']
-    percent_curtailed = curtailment_report['Curtailed energy in year 1 (%)']
     # calculate average battery SOC
     avg_cap = determine_battery_cap(test_case, test_case_system_info)
 
-    report = {'feasibility': [is_feas, unmet_load_metrics],
-             'energy_curtailed': float(energy_curtailed),
-             'percent_curtailed': float(percent_curtailed), 
-             'avg_battery_capacity_factor': avg_cap}
+    report = {'feasibility': {"Total generation > total load (kWh)":is_feas,
+                              "Temporal Alignment of Load and Generation": unmet_load_metrics},
+             'curtailment': curtailment_report,
+             'Battery Capacity Factors': avg_cap}
     return report
 
 def determine_feasibility(test_case):
@@ -49,12 +54,44 @@ def determine_feasibility(test_case):
     return test_case, net_feas
 
 def calculate_reliability_margin(test_case:pd.DataFrame, threshold = 1e-5):
+    # Define a threshold
     unmet_threshold = (test_case['Load (kW)'].max()) * threshold # calculating .1% of peak load
+    # Determine if there is unmet load
     unmet_load_mask = test_case['Unmet Load'] > unmet_threshold # whether unmet load is greater than .1% peak load
+    # Find the number of unmet load instances
     unmet_load_instances = float(unmet_load_mask.sum()) # number of unmet loads above threshold
-    unmet_load_magnitude = float(test_case['Unmet Load'][unmet_load_mask].sum()) # total amount of unmet load above threshold
-    unmet_load_percent = float((unmet_load_magnitude / (test_case['Load (kW)'].sum())) * 100) # what percent of load is unmet
-    return {'number_unmet_load': unmet_load_instances, 'total_unmet_load': unmet_load_magnitude, 'unmet_load_percent': unmet_load_percent}
+    
+    ### Calculate the amount of time that the load was not met
+    # First, find the total number of minutes in the year where the load was not met
+    unmet_load_duration_mins = unmet_load_instances * 5
+    # Express the magnitude as a percent of total minutes in the year
+    mins_in_year = 525600
+    unmet_load_percent_mins = (unmet_load_duration_mins / mins_in_year) * 100
+    
+    ### Calculate the amount of energy that was unmet
+    # First, get a time series of unmet energy demand in 5 minute intervals
+    unmet_load_ts = test_case['Unmet Load'][unmet_load_mask] * (5/60)
+    # Find the total unmet energy
+    unmet_load_magnitude_energy = unmet_load_ts.sum()
+    
+    # Express the magnitude of unmet energy as a percent
+    # To do this, we first need to know the load demand in kWh for the year
+    year_1_mask = test_case['Datetime'] < pd.Timestamp(f'2013-01-01 00:00:00')
+    # Time series of energy demand in 5 minute intervals
+    year_1_load_ts = test_case.loc[year_1_mask, 'Load (kW)'] * (5/60)
+    # Total energy demand for the year
+    year_1_load_kwh =  year_1_load_ts.sum()
+    # As a percent
+    unmet_load_percent_energy = (unmet_load_magnitude_energy / year_1_load_kwh) * 100
+    #unmet_load_magnitude_energy = float(test_case['Unmet Load'][unmet_load_mask].sum()) # total amount of unmet load above threshold
+    #unmet_load_percent_energy = float((unmet_load_magnitude / (test_case['Load (kW)'].sum())) * 100) # what percent of load is unmet
+    reliability_metrics = {
+        'Duration of Unmet Load (min)': unmet_load_duration_mins,
+        'Duration of Unmet Load (%)': unmet_load_percent_mins,
+        'Unmet Energy Demand (kWh)': unmet_load_magnitude_energy,
+        'Unmet Energy Demand (%)': unmet_load_percent_energy
+        }
+    return reliability_metrics
 
 def calculate_excess_generation(test_case:pd.DataFrame):
     # TODO: histogram of excess generation
@@ -126,24 +163,49 @@ def calculate_curtailment_metrics(test_case, excess_threshold_percent):
     year_1_generation_kwh = test_case.loc[year_1_mask, 'Available Energy (kWh)'].sum()
     curtailment_percent = (curtailment_magnitude / year_1_generation_kwh) * 100
 
-    metrics = {'Curtailed energy in year 1 (kWh)': curtailment_magnitude, 
-               'Curtailed energy in year 1 (%)': curtailment_percent}
+    metrics = {'Curtailed energy in year 1 (kWh)': float(curtailment_magnitude), 
+               'Curtailed energy in year 1 (%)': float(curtailment_percent)}
 
     return metrics
 
 def determine_battery_cap(test_case, tc_si):
-    # calculate capacity factor at hourly timestep
-    battery_capacity = tc_si['Battery Capacity'].values.tolist()[0]
-    batt_cap = np.array(test_case['Battery Discharge Power (kW)'])/battery_capacity
-    # split into monthly steps
-    monthly_cfs = np.array_split(batt_cap, len(batt_cap) // 8760)
-    monthly_avg_cf = [] # store monthly average
-    for cf in monthly_cfs:
-        # remove negative values (indicating charging)
-        cf = cf[cf >= 0]
-        # compute average
-        monthly_avg_cf.append(float(np.mean(cf)))
-    return monthly_avg_cf
+    # Get total battery capacity from test case system info
+    battery_capacity_kwh = tc_si['Battery Capacity'].values.tolist()[0]
+    
+    # Define a dictionary to fill in with utilization metrics
+    utilization = {}
+
+    ### Calculate energy discharged by the battery in Year 1
+    # Get time series of energy discharged
+    test_case['Battery Energy Discharged (kWh)'] = test_case['Battery Discharge Power (kW)'] * (5/60)
+    # Make sure we're only looking at Year 1
+    year_1_mask = test_case['Datetime'].dt.year == 2012
+    year_1_generation_kwh = test_case.loc[year_1_mask, 'Battery Energy Discharged (kWh)'].sum()
+    # Calculate ideal energy discharged for the year – "ideal" means 100% DoD/day
+    year_1_ideal_generation_kwh = battery_capacity_kwh * 365
+    # Express capacity factor as ratio between actual and ideal utilization
+    year_1_capacity_factor = year_1_generation_kwh / year_1_ideal_generation_kwh
+    # Update the dictionary
+    utilization["Year 1"] = year_1_capacity_factor
+
+    ### Calculate energy discharged by the battery for each month
+    for month in range(1,13):
+        # Find total energy discharged this month
+        month_mask = test_case['Datetime'].dt.month == month
+        month_generation_kwh = test_case.loc[month_mask, 'Battery Energy Discharged (kWh)'].sum()
+
+        # Calculate ideal energy discharged for the month – "ideal" means 100% DoD/day
+        days_in_month = calendar.monthrange(2012, month)[1]
+        month_ideal_generation_kwh = battery_capacity_kwh * days_in_month
+
+        # Express capacity factor as ratio between actual and ideal utilization
+        month_capacity_factor = month_generation_kwh / month_ideal_generation_kwh
+
+        # Update dictionary
+        month_as_string = calendar.month_name[month]
+        utilization[month_as_string] = month_capacity_factor
+    
+    return utilization
 
 def generate_dispatch_stack(test_case, day_to_study):
     """
@@ -240,11 +302,37 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     # save figure
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
 
-
-def add_geothermal_timeseries(test_case, geo_mw = 77, geo_cf = 0.95):
+def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
+    # TO-DO: FIND OUT WHY THIS SEEMS TO ONLY BE WORKING FOR RAMPING DOWN
     unmet_load = test_case['Load (kW)'] - test_case['System to Grid (kW)'] # remaining load
     geothermal_capacity_kW = geo_mw * geo_cf * 1000 # amount of geothermal available (assume constant)
-    test_case['Geothermal Generation (kW)'] = [min(geothermal_capacity_kW, l) for l in unmet_load] # geothermal time series
+    # As a first pass, the geothermal generation should be assumed to meet whatever unmet load 
+    # there is (provided that this remains within the geothermal plant capacity)
+    test_case['Geothermal Generation (kW)'] = [min(geothermal_capacity_kW, l) for l in unmet_load]
+    
+    # Additionally, the geothermal plant is bound by a certain ramp rate, which we will now include
+    max_change = GEOTHERMAL_RAMP_RATE * GEOTHERMAL_NAMEPLATE_MW * 1000
+
+    # Ensure the differences are within the limits
+    for i in range(1, len(test_case)):
+        prev_value = test_case.loc[i - 1, "Geothermal Generation (kW)"]
+        current_value = test_case.loc[i, "Geothermal Generation (kW)"]
+        difference = current_value - prev_value
+
+        # Adjust if difference exceeds the maximum allowed
+        if difference > max_change:
+            adjusted_value = prev_value + max_change
+        elif difference < -max_change:
+            adjusted_value = prev_value - max_change
+        else:
+            adjusted_value = current_value
+    
+        # Finally, don't allow the geothermal generation to go above/below the max/min limits
+        adjusted_value = np.clip(adjusted_value, GEOTHERMAL_MIN_GENERATION, GEOTHERMAL_NAMEPLATE_MW*1000)
+
+        # Set the generation to the calculated value
+        test_case.loc[i, "Geothermal Generation (kW)"] = adjusted_value
+
     test_case['Available Generation (kW)'] = test_case['System to Grid (kW)'] + np.array([geothermal_capacity_kW] * test_case['System to Grid (kW)'].shape[0])
     test_case['Generation to Grid (kW)'] = test_case['System to Grid (kW)'] + test_case['Geothermal Generation (kW)']
     return test_case
