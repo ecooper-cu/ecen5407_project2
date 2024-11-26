@@ -215,6 +215,7 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     """
     Create a plot of generation stack & save
     """
+    plt.clf()
     # colors for each generation type:
     color_dict = {'PV to Grid (kW)': 'gold', 'Net Wind Generation (kW)': 'royalblue', 'Geothermal Generation (kW)': 'tomato', 'Battery Discharge Power (kW)': 'silver'}
     x = range(len(generation_stack['PV to Grid (kW)']))
@@ -294,11 +295,12 @@ if __name__ == "__main__":
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
 
     # generate dispatch stack
-    day_to_study = '2012-07-27'
-    gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
+    days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
+    for day_to_study in days_to_study:
+        gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
-    # store results
-    store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics, gen_dict, day_to_study)
+        # store results
+        store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics, gen_dict, day_to_study)
 
-    # # plot figure for dispatch
-    plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
+        # # plot figure for dispatch
+        plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
