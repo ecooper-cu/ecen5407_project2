@@ -33,7 +33,7 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
     excess_gen_metrics = calculate_excess_generation(test_case)
     unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
-    curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=1e-5)
+    curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=1e-2)
     # calculate average battery SOC
     avg_cap = determine_battery_cap(test_case, test_case_system_info)
 
@@ -53,11 +53,11 @@ def determine_feasibility(test_case):
     test_case['Unmet Load'] = test_case['Generation to Grid (kW)'] - test_case['Load (kW)']
     return test_case, net_feas
 
-def calculate_reliability_margin(test_case:pd.DataFrame, threshold = 1e-5):
+def calculate_reliability_margin(test_case:pd.DataFrame, threshold = 1e-2):
     # Define a threshold
-    unmet_threshold = (test_case['Load (kW)'].max()) * threshold # calculating .1% of peak load
+    unmet_threshold = (test_case['Load (kW)'].max()) * threshold # calculating 1% of peak load
     # Determine if there is unmet load
-    unmet_load_mask = test_case['Unmet Load'] > unmet_threshold # whether unmet load is greater than .1% peak load
+    unmet_load_mask = test_case['Unmet Load'] > unmet_threshold # whether unmet load is greater than 1% peak load
     # Find the number of unmet load instances
     unmet_load_instances = float(unmet_load_mask.sum()) # number of unmet loads above threshold
     
@@ -355,7 +355,7 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'Trial_Full_System_Bigger_Battery_With_Geothermal_Ramp_Limits'
+    case_name = 'Trial_Full_System_90kW_3hr_Battery_with_Geothermal_Ramp_Limits'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
