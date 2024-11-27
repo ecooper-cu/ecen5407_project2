@@ -18,6 +18,7 @@ import numpy as np
 
 ### Load stuff
 import load_inspection_helpers
+from geothermal_constants import *
 
 # %% Define functions
 def run_pysam_model(inputs_file):
@@ -142,17 +143,18 @@ def battery_dispatch_model_with_ramp_limits(merged):
                                   (prev_soc - SOC_MIN) * BATTERY_ENERGY_CAPACITY / 
                                   (DISCHARGING_EFFICIENCY * timestep))
 
-        # Calculate the minimum and maximum allowable geothermal output based on the ramp rate
-        max_geo_output = prev_geo_output + GEOTHERMAL_RAMP_RATE * GEOTHERMAL_CAPACITY
+        # Calculate the maximum allowable geothermal output based on the ramp rate
+        max_geo_output = prev_geo_output + MAX_GEOTHERMAL_STEP
         # Ensures that ramp does not exceed maximum generation levels
-        max_geo_output = np.clip(max_geo_output, max=GEOTHERMAL_CAPACITY) 
+        max_geo_output = np.clip(max_geo_output, min=GEOTHERMAL_MIN_GENERATION, max=GEOTHERMAL_CAPACITY_KW) 
 
-        min_geo_output = prev_geo_output - GEOTHERMAL_RAMP_RATE * GEOTHERMAL_CAPACITY
+        # Calculate the minimum allowable geothermal output based on the ramp rate
+        min_geo_output = prev_geo_output - MAX_GEOTHERMAL_STEP
         # Ensures that ramp does not exceed minimum generation levels
-        min_geo_output = np.clip(min_geo_output, min=GEOTHERMAL_MIN_GENERATION) 
+        min_geo_output = np.clip(min_geo_output, min=GEOTHERMAL_MIN_GENERATION, max=GEOTHERMAL_CAPACITY_KW) 
 
         # Dispatch logic
-        if (load <= min_geo_output):
+        if load <= min_geo_output:
             # The minimum geothermal output exceeds the load! Geothermal output should be ramped 
             # down, and battery should charge with any extra power.
 
@@ -164,37 +166,46 @@ def battery_dispatch_model_with_ramp_limits(merged):
             charge_power = min(excess_power, max_charge_power)
             battery_power_target = -1 * charge_power # Charging is negative
             soc_step = charge_power * CHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY
+        elif load <= (renewable_generation + min_geo_output):
+            # The load exceeds the minimum geothermal output, but there are other renewables online
+            # to meet the demand.
+            # Meet the demand using least-cost methods first, and stay within geothermal ramp 
+            # limits.
+            # Set the geothermal output as low as possible – maximizes PV utilization under 
+            # constraint of geothermal ramp limit
+            geothermal_output = min_geo_output
+            
+            # Charge the battery with excess power
+            excess_power = (geothermal_output + renewable_generation) - load 
+            charge_power = min(excess_power, max_charge_power)
+            battery_power_target = -1 * charge_power # Charging is negative
+            soc_step = charge_power * CHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should increase
         else:
-            # The load exceeds the minimum geothermal output.
-            # Meet the load using least-cost methods first, and stay within geothermal ramp limits
-            if load <= (renewable_generation + min_geo_output):
-                # Set the geothermal output as low as possible
-                geothermal_output = min_geo_output
-                
-                # Charge the battery with excess power
-                excess_power = (geothermal_output + renewable_generation) - load 
-                charge_power = min(excess_power, max_charge_power)
+            # Set the geothermal output as high as possible, even if this puts total generation 
+            # above the load. We're trying to prolong the battery discharge so that we can remain
+            # within geothermal ramping limits without compromising reliability.
+            # Note that this should mean that the battery isn't always used at maximum 
+            # power, which is intentional. If we're in this condition, we want to prolong 
+            # the battery to help ease the geothermal ramping
+            geothermal_output = max_geo_output
+
+            # Find out if there's excess generation or a deficit
+            excess_power = (geothermal_output + renewable_generation) - load
+            deficit = load - (renewable_generation + geothermal_output)
+
+            if deficit > 0:
+                # The load exceeds the generation on-hand, and the battery must be discharged.
+                discharge_power = min(deficit, max_discharge_power)
+                battery_power_target = discharge_power # Discharging is positive
+                soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease
+            else:
+                # The geothermal and PV generation is sufficient to meet the demand. We 
+                # still want to allow the geothermal to ramp up though, so we charge the battery 
+                # with the excess power
+                excess = (renewable_generation + geothermal_output) - load
+                charge_power = min(excess, max_charge_power)
                 battery_power_target = -1 * charge_power # Charging is negative
                 soc_step = charge_power * CHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should increase
-            else:
-                if load >= (renewable_generation + max_discharge_power):
-                    # Set battery discharging power as high as possible
-                    discharge_power = max_discharge_power
-                    battery_power_target = discharge_power # Discharging is positive
-                    soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease
-                    
-                    # Set the geothermal output to fill in the difference
-                    deficit = load - (renewable_generation + battery_power_target)
-                    geothermal_output = np.clip(deficit, min_geo_output, max_geo_output)
-                else:
-                    # Keep the geothermal output constant
-                    geothermal_output = np.clip(prev_geo_output, min_geo_output, max_geo_output)
-                    
-                    # Discharge the battery to meet the load
-                    deficit = load - (renewable_generation + geothermal_output)
-                    discharge_power = min(deficit, max_discharge_power)
-                    battery_power_target = discharge_power # Discharging is positive
-                    soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease
 
         # Clip SOC to its limits
         new_soc = np.clip((prev_soc + soc_step), SOC_MIN, SOC_MAX)
@@ -240,12 +251,6 @@ CHARGING_EFFICIENCY = m.battery.BatterySystem.batt_ac_dc_efficiency
 DISCHARGING_EFFICIENCY = m.battery.BatterySystem.batt_dc_ac_efficiency
 #ROUNDTRIP_EFFICIENCY = m.battery.BatterySystem.batt_ac_dc_efficiency * m.battery.BatterySystem.batt_dc_ac_efficiency
 
-# Geothermal stuff
-GEOTHERMAL_CAPACITY_FACTOR = 0.95
-GEOTHERMAL_CAPACITY = 77 * GEOTHERMAL_CAPACITY_FACTOR * 1000    # Capacity in kW
-GEOTHERMAL_MIN_GENERATION = 0.1 * GEOTHERMAL_CAPACITY
-GEOTHERMAL_RAMP_RATE = 0.05
-
 # Iteration stuff
 timestep = 5/60 # 5-minute timestep in hours
 
@@ -270,7 +275,7 @@ pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_ti
 get_battery_utilization(result, m)
 
 # %% Generate a csv with the dispatch target
-result['Battery Power Target (kW)'].to_csv('data/PySam_Inputs/Hybrid_Project/dispatch_target_5min.csv', index=False)
+result['Battery Power Target (kW)'].to_csv("data/test_cases/Trial_Full_System_90kW_3hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv", index=False)
 
 # %% Generate a csv of system power output without the battery
 #result.to_csv('data/PySAM_Outputs/baseline_system_output.csv')

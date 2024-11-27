@@ -5,13 +5,7 @@ import os
 import numpy as np
 import load_inspection_helpers
 import calendar
-
-# Geothermal stuff
-GEOTHERMAL_NAMEPLATE_MW = 77
-GEOTHERMAL_CAPACITY_FACTOR = 0.95
-GEOTHERMAL_CAPACITY = GEOTHERMAL_NAMEPLATE_MW * GEOTHERMAL_CAPACITY_FACTOR * 1000    # Capacity in kW
-GEOTHERMAL_MIN_GENERATION = 0.1 * GEOTHERMAL_NAMEPLATE_MW * 1000
-GEOTHERMAL_RAMP_RATE = 0.05
+from geothermal_constants import *
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -311,7 +305,7 @@ def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_c
     test_case['Geothermal Generation (kW)'] = [min(geothermal_capacity_kW, l) for l in unmet_load]
     
     # Additionally, the geothermal plant is bound by a certain ramp rate, which we will now include
-    max_change = GEOTHERMAL_RAMP_RATE * GEOTHERMAL_NAMEPLATE_MW * 1000
+    max_change = MAX_GEOTHERMAL_STEP
 
     # Ensure the differences are within the limits
     for i in range(1, len(test_case)):
