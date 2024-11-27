@@ -6,6 +6,8 @@ import numpy as np
 import load_inspection_helpers
 import calendar
 from geothermal_constants import *
+import pysam_helpers
+from datetime import datetime, timedelta
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -386,3 +388,14 @@ if __name__ == "__main__":
 
         # # plot figure for dispatch
         plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
+
+        # Convert to datetime object
+        date = datetime.strptime(day_to_study, "%Y-%m-%d")
+
+        # Start of the day
+        start_of_day = date.strftime("%Y-%m-%d 00:00:00")
+
+        # End of the day (midnight of the next day minus 1 second)
+        end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
+        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])

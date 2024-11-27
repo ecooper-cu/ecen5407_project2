@@ -123,8 +123,10 @@ def battery_dispatch_model_with_ramp_limits(merged):
         # Predict what the load will be at the next timestep
         if t < (len(merged)-1):
             next_load = merged.at[t+1, "Load (kW)"]
+            next_renewable_gen = merged.at[t+1, "Renewable Generation (kW)"]
         else:
             next_load = merged.at[t, "Load (kW)"]
+            next_renewable_gen = merged.at[t, "Renewable Generation (kW)"]
 
         # Find what's currently available from wind and solar
         renewable_generation = merged.at[t, "Renewable Generation (kW)"]
@@ -227,17 +229,31 @@ def battery_dispatch_model_with_ramp_limits(merged):
                     geothermal_output = min_geo_output
                     # Set the battery to max discharge
                     discharge_power = max_discharge_power
-                    # [CONSIDER] If the battery was discharging last time step too, ramp it 
-                    # down a bit, but only if the load can still be met this way
-                    # if next_load > (renewable_generation + min_geo_output):
-                    #     print("Ramping down battery to prepare for geothermal ramp!")
-                    #     geothermal_output = prev_geo_output + 0.13*MAX_GEOTHERMAL_STEP
-                    #     geothermal_output = np.clip(geothermal_output, min=GEOTHERMAL_MIN_GENERATION, max=GEOTHERMAL_CAPACITY_KW) 
-                    #     discharge_power = load - (renewable_generation + geothermal_output)
                     battery_power_target = discharge_power # Discharging is positive!
                     soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease
-                    
-                    
+                    predicted_soc = np.clip((prev_soc + soc_step), SOC_MIN, SOC_MAX)
+                    predicted_max_discharge_power = min(BATTERY_MAX_DISCHARGE_POWER, 
+                                  (predicted_soc - SOC_MIN) * BATTERY_ENERGY_CAPACITY / 
+                                  (DISCHARGING_EFFICIENCY * timestep))
+                    # # If the load at the next timestep is not going to be able to be met, we need 
+                    # # to start ramping up geothermal now
+                    # if next_load > (next_renewable_gen + max_geo_output + predicted_max_discharge_power):
+                    #     print("Ramping down battery to prepare for geothermal ramp!")
+                    #     geothermal_output = prev_geo_output + MAX_GEOTHERMAL_STEP
+                    #     geothermal_output = np.clip(geothermal_output, min=GEOTHERMAL_MIN_GENERATION, max=GEOTHERMAL_CAPACITY_KW) 
+                    #     discharge_power = load - (renewable_generation + geothermal_output)
+                    #     discharge_power = np.clip(discharge_power, 0, max_discharge_power)
+                    #     battery_power_target = discharge_power # Discharging is positive!
+                    #     soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease   
+                    if (battery_power_target > 0) and predicted_soc <= 45:
+                        print("Ramping down battery to prepare for geothermal ramp!")
+                        geothermal_output = prev_geo_output + 0.8 * MAX_GEOTHERMAL_STEP
+                        geothermal_output = min(geothermal_output, load)
+                        geothermal_output = np.clip(geothermal_output, min=GEOTHERMAL_MIN_GENERATION, max=GEOTHERMAL_CAPACITY_KW) 
+                        discharge_power = load - (renewable_generation + geothermal_output)
+                        discharge_power = np.clip(discharge_power, 0, max_discharge_power)
+                        battery_power_target = discharge_power # Discharging is positive!
+                        soc_step
                 else:
                     # We do not have sufficient battery power to meet the load, so we should 
                     # use geothermal too
@@ -320,10 +336,28 @@ merged = pd.merge(gen, load, on='Datetime', how='inner')
 result = battery_dispatch_model_with_ramp_limits(merged)
 result.set_index('Datetime', inplace=True)
 
+# %% Report on whether the ramp rate was obeyed
+result['Geothermal Steps (kW)'] = result['Expected Geothermal Output (kW)'].diff()
+result['Violates Geothermal Ramp Rate'] = result['Geothermal Steps (kW)'].abs() > MAX_GEOTHERMAL_STEP
+
+has_exceeded = result['Violates Geothermal Ramp Rate'].any()
+
+if has_exceeded:
+    print("There are differences exceeding the threshold.")
+     # Filter rows where the condition is True
+    exceeded_days = result.loc[result['Violates Geothermal Ramp Rate']].index.unique()
+    
+    print("The geothermal ramp rate was exceeded on these days:")
+    for day in exceeded_days:
+        print(day)
+else:
+    print("No differences exceed the threshold.")
+
+
 # %% Generate some plots
-date_start = '2012-07-27 00:00:00'
-date_end = '2012-07-28 00:00:00'
-pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)', 'Load (kW)', 'Battery Power Target (kW)'])
+date_start = '2012-01-11 00:00:00'
+date_end = '2012-01-12 00:00:00'
+pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)', 'Load (kW)', 'Battery Power Target (kW)', 'Expected Geothermal Output (kW)'])
 pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['SOC'])
 
 # %% Print the battery utilization
