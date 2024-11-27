@@ -308,7 +308,7 @@ def get_battery_utilization(result, m):
         print(f"Battery utilization is {battery_capacity_factor * 100:.2f}% of the ideal utilization.")
 
 # %% Execute PySAM model
-m = run_pysam_model(inputs_file='/Users/robstallman/projects/ecen5407_project2/data/test_cases/Trial_Full_System_90kW_3hr_Battery_with_Geothermal_Ramp_Limits/Hybrid.json')
+m = run_pysam_model(inputs_file='data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/Hybrid.json')
 
 # %% Define some system characteristics that the dispatch model requires
 # Battery stuff from SAM
@@ -364,7 +364,7 @@ pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_ti
 get_battery_utilization(result, m)
 
 # %% Generate a csv with the dispatch target
-result['Battery Power Target (kW)'].to_csv("data/test_cases/Trial_Full_System_90kW_3hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv", index=False)
+result['Battery Power Target (kW)'].to_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv", index=False)
 
 # %% Generate a csv of system power output without the battery
 #result.to_csv('data/PySAM_Outputs/baseline_system_output.csv')

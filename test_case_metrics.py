@@ -351,7 +351,7 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'Trial_Full_System_90kW_3hr_Battery_with_Geothermal_Ramp_Limits'
+    case_name = 'Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
