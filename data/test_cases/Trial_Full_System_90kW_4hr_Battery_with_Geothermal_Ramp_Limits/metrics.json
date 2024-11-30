@@ -2,15 +2,15 @@
     "feasibility": {
         "Total generation > total load (kWh)": true,
         "Temporal Alignment of Load and Generation": {
-            "Duration of Unmet Load (min)": 215710.0,
-            "Duration of Unmet Load (%)": 41.04071537290716,
-            "Unmet Energy Demand (kWh)": 268984062.7741017,
-            "Unmet Energy Demand (%)": 65.97218934429468
+            "Duration of Unmet Load (min)": 720.0,
+            "Duration of Unmet Load (%)": 0.136986301369863,
+            "Unmet Energy Demand (kWh)": 51599.10478286813,
+            "Unmet Energy Demand (%)": 0.012655418598500072
         }
     },
     "curtailment": {
-        "Curtailed energy in year 1 (kWh)": 268984062.7741017,
-        "Curtailed energy in year 1 (%)": 56.53826883327602
+        "Curtailed energy in year 1 (kWh)": 268988134.14516145,
+        "Curtailed energy in year 1 (%)": 56.53912460245849
     },
     "Battery Capacity Factors": {
         "Year 1": 0.47965247754932483,

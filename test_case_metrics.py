@@ -26,7 +26,7 @@ def calculate_baseline_metrics(test_case, test_case_system_info):
     # check if the system is feasible throughout the year
     test_case, is_feas = determine_feasibility(test_case)
     unmet_load_metrics = {}
-    excess_gen_metrics = calculate_excess_generation(test_case)
+    #excess_gen_metrics = calculate_excess_generation(test_case)
     unmet_load_metrics = calculate_reliability_margin(test_case)
     # calculate curtailed wind and solar
     curtailment_report = calculate_curtailment_metrics(test_case, excess_threshold_percent=1e-2)
@@ -46,7 +46,7 @@ def determine_feasibility(test_case):
     net_feas = total_gen >= total_load
     # store timesteps when load > gen
     #infeas_timesteps = [(test_case['Datetime'].iloc[i]).strftime("%Y-%m-%d %X")for i in range(test_case.shape[0]) if test_case['Generation to Grid (kW)'].iloc[i] < test_case['Load (kW)'].iloc[i]]
-    test_case['Unmet Load'] = test_case['Generation to Grid (kW)'] - test_case['Load (kW)']
+    test_case['Unmet Load'] = test_case['Load (kW)'] - test_case['Generation to Grid (kW)']
     return test_case, net_feas
 
 def calculate_reliability_margin(test_case:pd.DataFrame, threshold = 1e-2):
@@ -301,11 +301,11 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
 def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
     # TO-DO: FIND OUT WHY THIS SEEMS TO ONLY BE WORKING FOR RAMPING DOWN
     unmet_load = test_case['Load (kW)'] - test_case['System to Grid (kW)'] # remaining load
+    unmet_load = np.clip(unmet_load, 0, a_max=None) # Ensure that we only evaluate cases where there is actually unmet load
     geothermal_capacity_kW = geo_mw * geo_cf * 1000 # amount of geothermal available (assume constant)
     # As a first pass, the geothermal generation should be assumed to meet whatever unmet load 
     # there is (provided that this remains within the geothermal plant capacity)
     test_case['Geothermal Generation (kW)'] = [min(geothermal_capacity_kW, l) for l in unmet_load]
-    
     # Additionally, the geothermal plant is bound by a certain ramp rate, which we will now include
     max_change = MAX_GEOTHERMAL_STEP
 
@@ -345,7 +345,23 @@ def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_na
     if generation_stack != {}:
         generation_df = pd.DataFrame(generation_stack)
         generation_df.to_csv(os.path.join(file_pth, f'{day_name}_generation_stack.csv'), index=False)
-       
+
+def adjust_battery_dispatch(test_case):
+    """
+    We created the battery dispatch timeseries using a coulomb-counting method for SOC estimation.
+    We then fed that into PySAM, which uses a more realistic method for SOC estimation.
+    As an example, consider 7pm on January 31st. The battery discharges 1023 kWh over the 5 minute
+    interval between 7pm and 7:05pm. Using coulomb counting alone, we would expect the battery SOC
+    to reduce by 0.0028, or 0.28% during these 5 minutes. However, we see that the battery SOC 
+    reduces by 0.035, or 3.5%. 
+    When we created our dispatch strategy, we expected to still have energy available in the 
+    battery at 7:05pm. As a result, we are using a higher ratio of battery dispatch to geothermal 
+    dispatch during this time than we should be.
+    Adjusting the dispatch strategy slightly is a realistic approach that would extend the battery
+    duration slightly in order to meet the load without exceeding the geothermal ramp limits.
+    """
+    pass
+
 if __name__ == "__main__":
     # names:
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
@@ -379,7 +395,8 @@ if __name__ == "__main__":
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
 
     # generate dispatch stack
-    days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
+    #days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
+    days_to_study = ['2012-01-31']
     for day_to_study in days_to_study:
         gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
@@ -397,5 +414,6 @@ if __name__ == "__main__":
 
         # End of the day (midnight of the next day minus 1 second)
         end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
-        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
+        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
