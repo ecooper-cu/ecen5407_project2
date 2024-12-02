@@ -295,8 +295,9 @@ def plot_dispatch_stack(generation_stack, gen_sources, file_pth, day_name):
     plt.ylabel('Generation Level')
     plt.title(f'Generation Dispatch for {day_name}')
     plt.legend(bbox_to_anchor=(1.25, 1.0))
+    plt.tight_layout()
     # save figure
-    plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
+    plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png', bbox_inches='tight')
 
 def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
     # TO-DO: FIND OUT WHY THIS SEEMS TO ONLY BE WORKING FOR RAMPING DOWN
