@@ -1,0 +1,30 @@
+{
+    "feasibility": {
+        "Total generation > total load (kWh)": true,
+        "Temporal Alignment of Load and Generation": {
+            "Duration of Unmet Load (min)": 720.0,
+            "Duration of Unmet Load (%)": 0.136986301369863,
+            "Unmet Energy Demand (kWh)": 51599.10478286813,
+            "Unmet Energy Demand (%)": 0.012655418598500072
+        }
+    },
+    "curtailment": {
+        "Curtailed energy in year 1 (kWh)": 268988134.14516145,
+        "Curtailed energy in year 1 (%)": 56.53912460245849
+    },
+    "Battery Capacity Factors": {
+        "Year 1": 0.47965247754932483,
+        "January": 0.438143117728599,
+        "February": 0.45095393001061085,
+        "March": 0.4802012528239417,
+        "April": 0.4669096222050201,
+        "May": 0.5167727695420308,
+        "June": 0.49392448817549817,
+        "July": 0.5130119784056916,
+        "August": 0.5314812736392592,
+        "September": 0.5266253582293525,
+        "October": 0.48919490706245805,
+        "November": 0.47049832594116914,
+        "December": 0.36205781365816914
+    }
+}

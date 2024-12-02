@@ -134,9 +134,12 @@ def parse_model_outputs_into_dataframes(model):
 
 def plot_values_by_time_range(df, start_time, end_time, y_columns):
     # Use the datetime index as a column
-    this_df = df.reset_index(drop=False)
-    this_df.rename(columns={'index':'Datetime'},  inplace=True)
-    this_df['Datetime'] = pd.to_datetime(this_df['Datetime'])
+    if 'Datetime' not in df.columns:
+        this_df = df.reset_index(drop=False)
+        this_df.rename(columns={'index':'Datetime'},  inplace=True)
+        this_df['Datetime'] = pd.to_datetime(this_df['Datetime'])
+    else:
+        this_df = df.copy()
     
     # Filter the DataFrame based on the time range
     mask = (this_df['Datetime'] >= start_time) & (this_df['Datetime'] <= end_time)

@@ -21,8 +21,8 @@ import pickle
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'Trial_Full_System_Bigger_Battery' # change name!
-inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
+case_name = 'Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits' # change name!
+inputs_file = 'data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
 
@@ -36,6 +36,16 @@ m.new()
 unassigned = m.assign(inputs) # returns a list of unassigned variables if any
 print(unassigned)
 
+# %% Set the custom dispatch
+old_dispatch = list(m.battery.BatteryDispatch.batt_custom_dispatch)
+
+dispatch_df = pd.read_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv")
+new_dispatch = dispatch_df["Battery Power Target (kW)"].to_list()
+
+# Confirm that you've updated the dispatch
+print(new_dispatch == old_dispatch)
+
+m.battery.BatteryDispatch.batt_custom_dispatch = new_dispatch
 #%% Run a simulation
 m.execute()
 
@@ -137,8 +147,8 @@ if store_case:
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
-grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
-single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
+#grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
+#single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
 #%% 
 # Generate a system output dataframe
