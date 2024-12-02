@@ -216,26 +216,30 @@ def generate_dispatch_stack(test_case, day_to_study):
     Dictionary with time series generation for each generation source
     Dictionary with excess generation
     """
-    # TODO replace index_range with a date, then pull the load and generation associated with that date
+    # filter out generation for a given day
     day_gen = test_case[test_case['Datetime'].dt.date == pd.to_datetime(day_to_study).date()].reset_index(drop=True)
-    # store generation levels at every time step and excess generation
-    # Generation from each type of resource that must be dispatched to meet the load for the given 
-    # day
-    pv_gen = [0]* day_gen.shape[0]
+    # store generation for every resource at each time step
+    pv_gen = [0]* day_gen.shape[0] 
     wind_gen = [0]* day_gen.shape[0]
     geo_gen = [0]* day_gen.shape[0]
     batt_gen = [0]* day_gen.shape[0]
+    # store leftover generation at each time step
     pv_excess = [0]* day_gen.shape[0]
     wind_excess = [0]* day_gen.shape[0]
     geo_excess = [0]* day_gen.shape[0]
     batt_excess = [0]* day_gen.shape[0]
-    # at each time step, calculate power used
+    # calculate power used
     for i, row in day_gen.iterrows():
-        # start by utilizing available wind and solar
         load = row['Load (kW)']
-        load = determine_resource_use(load, row['Net Wind Generation (kW)'], wind_gen, wind_excess, i)
+        # utilize available geothermal
+        load= determine_resource_use(load, row['Geothermal Generation (kW)'], geo_gen, geo_excess, i)
         if load == 0:
             continue
+        # utilize available wind and solar
+        if 'Net Wind Generation (kW)' in  day_gen.columns:
+            load = determine_resource_use(load, row['Net Wind Generation (kW)'], wind_gen, wind_excess, i)
+            if load == 0:
+                continue
         load = determine_resource_use(load, row['PV to Grid (kW)'], pv_gen, pv_excess, i)
         if load == 0:
             continue
@@ -243,10 +247,7 @@ def generate_dispatch_stack(test_case, day_to_study):
         load = determine_resource_use(load, row['Battery Discharge Power (kW)'], batt_gen, batt_excess, i)
         if load == 0:
             continue
-        # utilize available geothermal
-        load= determine_resource_use(load, row['Geothermal Generation (kW)'], geo_gen, geo_excess, i)
-        if load == 0:
-            continue
+
 
     # return dictionaries
     gen_dict = {'Net Wind Generation (kW)': wind_gen, 'PV to Grid (kW)': pv_gen, 'Geothermal Generation (kW)': geo_gen, 'Battery Discharge Power (kW)': batt_gen}
@@ -269,7 +270,7 @@ def determine_resource_use(load, resource, resource_gen:list, resource_excess:li
         resource_excess[i] = 0
     return load
     
-def plot_dispatch_stack(generation_stack, file_pth, day_name):
+def plot_dispatch_stack(generation_stack, gen_sources, file_pth, day_name):
     """
     Create a plot of generation stack & save
     """
@@ -279,26 +280,25 @@ def plot_dispatch_stack(generation_stack, file_pth, day_name):
     x = range(len(generation_stack['PV to Grid (kW)']))
     alpha = 0.5
     # plot generation sources stacked on top
-    plt.plot(x, np.array(generation_stack['PV to Grid (kW)']), label = 'PV', color =  color_dict['PV to Grid (kW)'])
-    curr_gen_0 = np.array(generation_stack['PV to Grid (kW)'])
-    plt.plot(x, np.array(generation_stack['Net Wind Generation (kW)']) + curr_gen_0, label = 'Wind', color =  color_dict['Net Wind Generation (kW)'])
-    curr_gen_1 = curr_gen_0 + np.array(generation_stack['Net Wind Generation (kW)'])
-    plt.plot(x, np.array(generation_stack['Battery Discharge Power (kW)']) + curr_gen_1, label = 'Battery', color =  color_dict['Battery Discharge Power (kW)'])
-    curr_gen_2 = curr_gen_1 + np.array(generation_stack['Battery Discharge Power (kW)'])
-    plt.plot(x, np.array(generation_stack['Geothermal Generation (kW)']) + curr_gen_2, label = 'Geothermal', color =  color_dict['Geothermal Generation (kW)'])
-    # fill between lines
-    plt.fill_between(x, [0] * len(x), curr_gen_0, color = color_dict['PV to Grid (kW)'], alpha = alpha)
-    plt.fill_between(x, curr_gen_0, curr_gen_1, color = color_dict['Net Wind Generation (kW)'], alpha = alpha)
-    plt.fill_between(x, curr_gen_1, curr_gen_2, color = color_dict['Battery Discharge Power (kW)'], alpha = alpha)
-    plt.fill_between(x, curr_gen_2, curr_gen_2 + np.array(generation_stack['Geothermal Generation (kW)']), color = color_dict['Geothermal Generation (kW)'], alpha = alpha)
+    order = [('Geothermal Generation (kW)', 'Geothermal'), ('PV to Grid (kW)', 'PV'), ('Net Wind Generation (kW)', 'Wind'), 
+             ('Battery Discharge Power (kW)', 'Battery'), ]
+    prev_gen = [0]*len(generation_stack['PV to Grid (kW)'])
+    for gen, label in order:
+        if gen not in gen_sources:
+            continue
+        plt.plot(x, prev_gen + np.array(generation_stack[gen]), label = label, color =  color_dict[gen])
+        # fill between lines
+        plt.fill_between(x, prev_gen, prev_gen + np.array(generation_stack[gen]), color =  color_dict[gen], alpha = alpha)
+        prev_gen += np.array(generation_stack[gen])
+
     plt.xlabel('Timestep (5 min interval)')
     plt.ylabel('Generation Level')
-    plt.title('Generation Dispatch')
-    plt.legend()
+    plt.title(f'Generation Dispatch for {day_name}')
+    plt.legend(bbox_to_anchor=(1.25, 1.0))
     # save figure
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png')
 
-def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
+def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
     # TO-DO: FIND OUT WHY THIS SEEMS TO ONLY BE WORKING FOR RAMPING DOWN
     unmet_load = test_case['Load (kW)'] - test_case['System to Grid (kW)'] # remaining load
     unmet_load = np.clip(unmet_load, 0, a_max=None) # Ensure that we only evaluate cases where there is actually unmet load
@@ -306,6 +306,7 @@ def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_c
     # As a first pass, the geothermal generation should be assumed to meet whatever unmet load 
     # there is (provided that this remains within the geothermal plant capacity)
     test_case['Geothermal Generation (kW)'] = [min(geothermal_capacity_kW, l) for l in unmet_load]
+    gen_sources.append('Geothermal Generation (kW)')
     # Additionally, the geothermal plant is bound by a certain ramp rate, which we will now include
     max_change = MAX_GEOTHERMAL_STEP
 
@@ -318,7 +319,7 @@ def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_c
         # Adjust if difference exceeds the maximum allowed
         if difference > max_change:
             adjusted_value = prev_value + max_change
-        elif difference < -max_change:
+        elif difference < -1*max_change:
             adjusted_value = prev_value - max_change
         else:
             adjusted_value = current_value
@@ -331,7 +332,7 @@ def add_geothermal_timeseries(test_case, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_c
 
     test_case['Available Generation (kW)'] = test_case['System to Grid (kW)'] + np.array([geothermal_capacity_kW] * test_case['System to Grid (kW)'].shape[0])
     test_case['Generation to Grid (kW)'] = test_case['System to Grid (kW)'] + test_case['Geothermal Generation (kW)']
-    return test_case
+    return test_case, gen_sources
 
 def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_name = ''):
     """
@@ -389,10 +390,11 @@ if __name__ == "__main__":
     test_case = add_load_to_test_case(test_case=test_case, load_df=load)
 
     # add geothermal
-    test_case = add_geothermal_timeseries(test_case)
+    test_case, gen_sources = add_geothermal_timeseries(test_case, gen_sources)
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
+    store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics)
 
     # generate dispatch stack
     #days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
@@ -401,10 +403,21 @@ if __name__ == "__main__":
         gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
         # store results
-        store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics, gen_dict, day_to_study)
+        store_results(os.path.join('data', 'test_cases', case_name), {}, gen_dict, day_to_study)
 
         # # plot figure for dispatch
-        plot_dispatch_stack(gen_dict, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
+        plot_dispatch_stack(gen_dict, gen_sources, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
+        # Convert to datetime object
+        date = datetime.strptime(day_to_study, "%Y-%m-%d")
+
+        # Start of the day
+        start_of_day = date.strftime("%Y-%m-%d 00:00:00")
+
+        # End of the day (midnight of the next day minus 1 second)
+        end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
+        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
 
         # Convert to datetime object
         date = datetime.strptime(day_to_study, "%Y-%m-%d")
