@@ -397,8 +397,7 @@ if __name__ == "__main__":
     store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics)
 
     # generate dispatch stack
-    #days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
-    days_to_study = ['2012-01-31']
+    days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
     for day_to_study in days_to_study:
         gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
@@ -407,18 +406,6 @@ if __name__ == "__main__":
 
         # # plot figure for dispatch
         plot_dispatch_stack(gen_dict, gen_sources, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
-        # Convert to datetime object
-        date = datetime.strptime(day_to_study, "%Y-%m-%d")
-
-        # Start of the day
-        start_of_day = date.strftime("%Y-%m-%d 00:00:00")
-
-        # End of the day (midnight of the next day minus 1 second)
-        end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
-        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
-
         # Convert to datetime object
         date = datetime.strptime(day_to_study, "%Y-%m-%d")
 
