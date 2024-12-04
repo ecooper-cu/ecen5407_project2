@@ -2,29 +2,29 @@
     "feasibility": {
         "Total generation > total load (kWh)": true,
         "Temporal Alignment of Load and Generation": {
-            "Duration of Unmet Load (min)": 665.0,
-            "Duration of Unmet Load (%)": 0.1265220700152207,
-            "Unmet Energy Demand (kWh)": 40938.733433376634,
-            "Unmet Energy Demand (%)": 0.01004081002319655
+            "Duration of Unmet Load (min)": 780.0,
+            "Duration of Unmet Load (%)": 0.14840182648401826,
+            "Unmet Energy Demand (kWh)": 55739.066090233726,
+            "Unmet Energy Demand (%)": 0.013670803333308508
         }
     },
     "curtailment": {
-        "Curtailed energy in year 1 (kWh)": 422039852.55023664,
-        "Curtailed energy in year 1 (%)": 67.48246462009043
+        "Curtailed energy in year 1 (kWh)": 437095743.0622566,
+        "Curtailed energy in year 1 (%)": 68.96052157973972
     },
     "Battery Capacity Factors": {
-        "Year 1": 0.4972446008419141,
-        "January": 0.45618999644187247,
-        "February": 0.47023103077915523,
-        "March": 0.48386445851747556,
-        "April": 0.4784503378034568,
-        "May": 0.5302906735287297,
-        "June": 0.5212618476083803,
-        "July": 0.5223161236727698,
-        "August": 0.5281512285268432,
-        "September": 0.5207103066900353,
-        "October": 0.506774799657499,
-        "November": 0.48919719747190826,
-        "December": 0.44238009796092986
+        "Year 1": 0.4604996480575284,
+        "January": 0.4378050481155924,
+        "February": 0.43540960302774234,
+        "March": 0.45040994722266275,
+        "April": 0.4473992730430482,
+        "May": 0.4922031453079847,
+        "June": 0.4831584000872697,
+        "July": 0.48680550995100935,
+        "August": 0.48012511990778484,
+        "September": 0.4747529498606451,
+        "October": 0.4733226269837404,
+        "November": 0.44844528229180824,
+        "December": 0.4169248732278347
     }
 }

@@ -1,12 +1,15 @@
 # %% Module imports
 ### PySAM stuff
 # Get performance model for each subsystem
-import PySAM.Pvsamv1 as pv_model
-import PySAM.Windpower as wind_model
-import PySAM.Battery as battery_model
+import PySAM.Pvsamv1 as PVSAM
+import PySAM.Grid as Grid
+import PySAM.Utilityrate5 as UtilityRate
+import PySAM.Singleowner as SingleOwner
+#import PySAM.Windpower as wind_model
+#import PySAM.Battery as battery_model
 
 # Get function for managing hybrid variables and simulations
-from PySAM.Hybrids.HybridSystem import HybridSystem
+#from PySAM.Hybrids.HybridSystem import HybridSystem
 
 # To load inputs from SAM
 import json
@@ -22,51 +25,59 @@ from geothermal_constants import *
 
 # %% Define functions
 def run_pysam_model(inputs_file):
-        # Load the inputs from the JSON file
-        # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
-        # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
-        # Single Owner financial model
-        print("Loading inputs...")
-        with open(inputs_file, 'r') as f:
-                inputs = json.load(f)['input']
+        # Create a new instance of each module
+        pvbatt_model = PVSAM.new()
+        grid = Grid.from_existing(pvbatt_model)
+        utility_rate = UtilityRate.from_existing(pvbatt_model)
+        single_owner = SingleOwner.from_existing(pvbatt_model)
 
-        # Create the hybrid system model using performance model names as defined by the import 
-        # statements above. The string 'singleowner' indicates the financial model ('hostdeveloper' would
-        # be another option).
-        print("Creating hybrid system...")
-        m = HybridSystem([pv_model, wind_model, battery_model], 'singleowner')
-        m.new()
+        # Load the inputs from the JSON file into each module
+        file_names = ["pvsamv1", "grid", "utilityrate5", "singleowner"]
+        modules = [pvbatt_model, grid, utility_rate, single_owner]
+        for f, m in zip(file_names, modules):
+            filepath = inputs_file + "_" + f + '.json'
+            print(f"Loading inputs from: {filepath}")
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+                # loop through each key-value pair
+                for k, v in data.items():
+                    # Note: I'm ignoring any 'adjustment factors' here, but these can be set afterwards.
+                    # See: https://nrel-pysam.readthedocs.io/en/main/modules/Pvsamv1.html#adjustmentfactors-group
+                    if k != "number_inputs" and 'adjust_' not in k:
+                        m.value(k, v)
 
-        # Load the inputs from the JSON file into the main module
-        print("Assigning inputs to hybrid system....")
-        unassigned = m.assign(inputs) # returns a list of unassigned variables if any
-        print(unassigned)
-
-        # Forbid the battery from charging from the system – now it can't participate
-        m.battery.value("batt_dispatch_auto_can_charge", 0)
+        # Override battery dispatch to prevent participation
+        pvbatt_model.value("batt_custom_dispatch", np.zeros(len(pvbatt_model.value("batt_custom_dispatch"))))
 
         # Run a simulation
         print("Running PySAM simulation...")
+        for m in modules:
+            m.execute()
 
-        m.execute()
+        module_dict = {
+            "pvbatt_model":pvbatt_model,
+            "grid":grid,
+            "utility_rate":utility_rate,
+            "single_owner":single_owner
+        }
 
-        return m
+        return module_dict
 
-def produce_generation_dataframe(m):
+def produce_generation_dataframe(module_dict):
         # Create a dictionary of DataFrames with the outputs from each model
-        pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv, five_minutes_only=True)
-        wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind, five_minutes_only=True)
+        pvbatt_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(module_dict["pvbatt_model"], five_minutes_only=True)
+        #wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind, five_minutes_only=True)
 
         # Build a dataframe of generation data
-        pv_df = pv_model_outputs['Lifetime 5 Minute Data'].reset_index()
-        pv_gen = pv_df[['Datetime', 'subarray1_dc_gross', 'gen']]
-        pv_gen.rename(columns={'subarray1_dc_gross':'PV DC Gross (kW)', 'gen': 'PV Generation (kW)'}, inplace=True)
-        wind_df = wind_model_outputs['5 Minute Data'].reset_index()
-        wind_gen = wind_df[['Datetime', 'gen']]
-        wind_gen.rename(columns={'gen':'Wind Generation (kW)'}, inplace=True)
-        gen = pd.merge(pv_gen, wind_gen, on='Datetime', how='inner')
+        pvbatt_df = pvbatt_model_outputs['Lifetime 5 Minute Data'].reset_index()
+        gen = pvbatt_df[['Datetime', 'subarray1_dc_gross', 'gen']]
+        gen.rename(columns={'subarray1_dc_gross':'PV DC Gross (kW)', 'gen': 'PV Generation (kW)'}, inplace=True)
+        #wind_df = wind_model_outputs['5 Minute Data'].reset_index()
+        #wind_gen = wind_df[['Datetime', 'gen']]
+        #wind_gen.rename(columns={'gen':'Wind Generation (kW)'}, inplace=True)
+        #gen = pd.merge(pv_gen, wind_gen, on='Datetime', how='inner')
         gen['Datetime'] = pd.to_datetime(gen['Datetime'])
-        gen['System Generation (kW)'] = gen['PV Generation (kW)'] + gen['Wind Generation (kW)']
+        gen['System Generation (kW)'] = gen['PV DC Gross (kW)']
 
         return gen
 
@@ -94,7 +105,8 @@ def battery_dispatch_model_with_ramp_limits(merged):
     """
 
     # Calculate total renewable generation
-    merged["Renewable Generation (kW)"] = merged["PV Generation (kW)"] + merged["Wind Generation (kW)"]
+    #merged["Renewable Generation (kW)"] = merged["PV Generation (kW)"] + merged["Wind Generation (kW)"]
+    merged["Renewable Generation (kW)"] = merged["System Generation (kW)"]
 
     # Make sure that renewable generation is always positive
     merged["Renewable Generation (kW)"] = np.clip(merged["Renewable Generation (kW)"], a_min = 0, a_max = None)
@@ -288,7 +300,7 @@ def battery_dispatch_model_with_ramp_limits(merged):
 
     return merged
 
-def get_battery_utilization(result, m):
+def get_battery_utilization(result, module_dict):
         # From initial analysis, the battery is highly underutilized:
         # Grab discharging targets from the battery dispatch time series
         result['Battery Discharge Target (kW)'] = result['Battery Power Target (kW)'][result['Battery Power Target (kW)'] > 0]
@@ -300,7 +312,7 @@ def get_battery_utilization(result, m):
 
         # We need a baseline against which to evaluate the utilization of the battery. We will choose an 
         # 'ideal' dispatch of 100% of the battery's capacity per day as this baseline.
-        battery_capacity_kWhdc = m.battery.BatterySystem.batt_computed_bank_capacity
+        battery_capacity_kWhdc = module_dict['pvbatt_model'].BatterySystem.batt_computed_bank_capacity
         ideal_annual_battery_generation_kwh = battery_capacity_kWhdc * 365
 
         # Compare actual energy discharged in year 1 against ideal energy discharged in year 1
@@ -308,18 +320,18 @@ def get_battery_utilization(result, m):
         print(f"Battery utilization is {battery_capacity_factor * 100:.2f}% of the ideal utilization.")
 
 # %% Execute PySAM model
-m = run_pysam_model(inputs_file='data/test_cases/remove_wind/Hybrid.json')
+module_dict = run_pysam_model(inputs_file='data/test_cases/remove_wind/Remove_Wind')
 
 # %% Define some system characteristics that the dispatch model requires
 # Battery stuff from SAM
-BATTERY_ENERGY_CAPACITY = m.battery.BatterySystem.batt_computed_bank_capacity
-BATTERY_MAX_DISCHARGE_POWER = m.battery.BatterySystem.batt_power_discharge_max_kwac
-BATTERY_MAX_CHARGE_POWER = m.battery.BatterySystem.batt_power_charge_max_kwac
-SOC_MIN = m.battery.BatteryCell.batt_minimum_SOC
-SOC_MAX = m.battery.BatteryCell.batt_maximum_SOC
-INITIAL_SOC = m.battery.BatteryCell.batt_initial_SOC
-CHARGING_EFFICIENCY = m.battery.BatterySystem.batt_ac_dc_efficiency
-DISCHARGING_EFFICIENCY = m.battery.BatterySystem.batt_dc_ac_efficiency
+BATTERY_ENERGY_CAPACITY = module_dict['pvbatt_model'].BatterySystem.batt_computed_bank_capacity
+BATTERY_MAX_DISCHARGE_POWER = module_dict['pvbatt_model'].BatterySystem.batt_power_discharge_max_kwdc
+BATTERY_MAX_CHARGE_POWER = module_dict['pvbatt_model'].BatterySystem.batt_power_charge_max_kwdc
+SOC_MIN = module_dict['pvbatt_model'].BatteryCell.batt_minimum_SOC
+SOC_MAX = module_dict['pvbatt_model'].BatteryCell.batt_maximum_SOC
+INITIAL_SOC = module_dict['pvbatt_model'].BatteryCell.batt_initial_SOC
+CHARGING_EFFICIENCY = module_dict['pvbatt_model'].BatterySystem.batt_dc_dc_efficiency
+DISCHARGING_EFFICIENCY = module_dict['pvbatt_model'].BatterySystem.batt_dc_ac_efficiency
 #ROUNDTRIP_EFFICIENCY = m.battery.BatterySystem.batt_ac_dc_efficiency * m.battery.BatterySystem.batt_dc_ac_efficiency
 
 # Iteration stuff
@@ -327,7 +339,7 @@ timestep = 5/60 # 5-minute timestep in hours
 
 # %% Prepare dataset
 load = produce_load_dataframe(load_filepath='data/Project 2 - Load Profile.xlsx')
-gen = produce_generation_dataframe(m=m)
+gen = produce_generation_dataframe(module_dict=module_dict)
 
 #%% Merge the two dataframes
 merged = pd.merge(gen, load, on='Datetime', how='inner')

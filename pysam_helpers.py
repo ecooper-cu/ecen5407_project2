@@ -268,10 +268,18 @@ def merge_subsystem_5min_dfs(system_output_dict):
                 return None
         
         # Each subsystem type will have different column names
-        if 'pv' in subsystem_type.lower():
+        if 'pvbatt' in subsystem_type.lower():
             # Define the columns in the subsystem DataFrame that we want to access
-            columns_to_pull = ['Datetime', 'ac_gross']
-            new_column_names = {'ac_gross': 'Net PV Generation (kW)'}
+            columns_to_pull = ['Datetime', 'ac_gross', 'batt_to_grid', 'system_to_batt', 'system_to_grid', 'batt_SOC']
+            new_column_names = {'ac_gross': 'Net PV Generation (kW)',
+                                'batt_to_grid': 'Battery Discharge Power (kW)',
+                                'system_to_batt': 'Battery Charge Power (kW)',
+                                'system_to_grid': 'PV to Grid (kW)',
+                                'batt_SOC': 'Battery SOC'}
+        #elif 'pv' in subsystem_type.lower():
+        #    # Define the columns in the subsystem DataFrame that we want to access
+        #    columns_to_pull = ['Datetime', 'ac_gross']
+        #    new_column_names = {'ac_gross': 'Net PV Generation (kW)'}
         elif 'wind' in subsystem_type.lower():
             # Define the columns in the subsystem DataFrame that we want to access
             columns_to_pull = ['Datetime', 'gen']
@@ -294,10 +302,13 @@ def merge_subsystem_5min_dfs(system_output_dict):
         # Add the dataframe to the list
         subsystem_dfs.append(this_df)
     
-    # Loop through the list, merging each DataFrame
-    system_df = pd.merge(subsystem_dfs[0], subsystem_dfs[1], on='Datetime', how='inner')
-    for idx in range(1, len(subsystem_dfs) - 1):
-        system_df = pd.merge(system_df, subsystem_dfs[idx+1], on='Datetime', how='inner')
+    if len(subsystem_dfs) > 1:
+        # Loop through the list, merging each DataFrame
+        system_df = pd.merge(subsystem_dfs[0], subsystem_dfs[1], on='Datetime', how='inner')
+        for idx in range(1, len(subsystem_dfs) - 1):
+            system_df = pd.merge(system_df, subsystem_dfs[idx+1], on='Datetime', how='inner')
+    else:
+        system_df = subsystem_dfs[0]
 
     # Return the system-wide dataframe
     return system_df
