@@ -403,7 +403,7 @@ if __name__ == "__main__":
     test_case = add_load_to_test_case(test_case=test_case, load_df=load)
 
     # add geothermal
-    # test_case, gen_sources = add_geothermal_timeseries(test_case, gen_sources)
+    test_case, gen_sources = add_geothermal_timeseries(test_case, gen_sources)
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
