@@ -366,10 +366,10 @@ def adjust_battery_dispatch(test_case):
 
 if __name__ == "__main__":
     # names:
-    available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
+    available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)']
 
     # read in stored data for test case
-    case_name = 'updated_econ_metrics'
+    case_name = 'remove_wind'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
@@ -416,5 +416,5 @@ if __name__ == "__main__":
         # End of the day (midnight of the next day minus 1 second)
         end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
         #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])

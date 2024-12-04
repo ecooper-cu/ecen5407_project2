@@ -23,7 +23,7 @@ def interval_to_date_string(interval, interval_type, year):
     # Format the datetime to the desired string format
     return date_time.strftime('%Y-%m-%d, %H:%M:%S')
 
-def parse_model_outputs_into_dataframes(model):
+def parse_model_outputs_into_dataframes(model, five_minutes_only=False):
     """
     After executing each model, there will be a set of outputs associated with the simulation. 
     
@@ -83,51 +83,81 @@ def parse_model_outputs_into_dataframes(model):
     # Create DataFrames for each group
     dataframes = {}
     for length, items in grouped_data.items():
-        if length == 'float':
-            # Load the data into a DataFrame
-            df = pd.DataFrame([items.values()], columns=items.keys())
+        if five_minutes_only:
+            if length == 'float':
+                continue
+            elif length == five_minutes_in_analysis_period:
+                # Load the data into a DataFrame
+                df = pd.DataFrame.from_dict(items, orient='index').T
 
-            # These are single-value data
-            dataframes[f'Single Values'] = df
-        else:
-            # Load the data into a DataFrame
-            df = pd.DataFrame.from_dict(items, orient='index').T
-
-            # Find the data interval length based on the length of the DataFrame
-            if length == years_in_analysis_period:
-                keyname = 'Annual_Data'
-            elif length == 12:
-                keyname = 'Monthly Data'
-                df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-            elif length == hours_in_year:
-                keyname = 'Hourly Data'
+                # Format the data
+                keyname = 'Lifetime 5 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
-                    interval=x, interval_type='hour', year=2012))
+                    interval=x, interval_type='5-minute', year=2012))
+                df = manage_leap_years(df)
+                
+                # Set the keys
+                dataframes[keyname] = df
             elif length == five_minutes_in_year:
+                # Load the data into a DataFrame
+                df = pd.DataFrame.from_dict(items, orient='index').T
+            
+                # Format the data
                 keyname = '5 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='5-minute', year=2012))
                 df = manage_leap_years(df)
-            elif length == hours_in_analysis_period:
-                keyname = 'Lifetime Hourly Data'
-                df.index = df.index.map(lambda x: interval_to_date_string(
-                    interval=x, interval_type='hour', year=2012))
-                df = manage_leap_years(df)
-            elif length == half_hours_in_analysis_period:
-                keyname = 'Lifetime 30 Minute Data'
-                df.index = df.index.map(lambda x: interval_to_date_string(
-                    interval=x, interval_type='half-hour', year=2012))
-                df = manage_leap_years(df)
-            elif length == five_minutes_in_analysis_period:
-                keyname = 'Lifetime 5 Minute Data'
-                df.index = df.index.map(lambda x: interval_to_date_string(
-                    interval=x, interval_type='5-minute', year=2012))
-                df = manage_leap_years(df)                
+
+                # Set the keys
+                dataframes[keyname] = df
             else:
-                keyname = f'df_{length}'
-            
-            # Set the keys
-            dataframes[keyname] = df
+                continue
+        else:
+            if length == 'float':
+                # Load the data into a DataFrame
+                df = pd.DataFrame([items.values()], columns=items.keys())
+
+                # These are single-value data
+                dataframes[f'Single Values'] = df
+            else:
+                # Load the data into a DataFrame
+                df = pd.DataFrame.from_dict(items, orient='index').T
+
+                # Find the data interval length based on the length of the DataFrame
+                if length == years_in_analysis_period:
+                    keyname = 'Annual_Data'
+                elif length == 12:
+                    keyname = 'Monthly Data'
+                    df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+                elif length == hours_in_year:
+                    keyname = 'Hourly Data'
+                    df.index = df.index.map(lambda x: interval_to_date_string(
+                        interval=x, interval_type='hour', year=2012))
+                elif length == five_minutes_in_year:
+                    keyname = '5 Minute Data'
+                    df.index = df.index.map(lambda x: interval_to_date_string(
+                        interval=x, interval_type='5-minute', year=2012))
+                    df = manage_leap_years(df)
+                elif length == hours_in_analysis_period:
+                    keyname = 'Lifetime Hourly Data'
+                    df.index = df.index.map(lambda x: interval_to_date_string(
+                        interval=x, interval_type='hour', year=2012))
+                    df = manage_leap_years(df)
+                elif length == half_hours_in_analysis_period:
+                    keyname = 'Lifetime 30 Minute Data'
+                    df.index = df.index.map(lambda x: interval_to_date_string(
+                        interval=x, interval_type='half-hour', year=2012))
+                    df = manage_leap_years(df)
+                elif length == five_minutes_in_analysis_period:
+                    keyname = 'Lifetime 5 Minute Data'
+                    df.index = df.index.map(lambda x: interval_to_date_string(
+                        interval=x, interval_type='5-minute', year=2012))
+                    df = manage_leap_years(df)                
+                else:
+                    keyname = f'df_{length}'
+                
+                # Set the keys
+                dataframes[keyname] = df
         
     # Return the dictionary of DataFrames
     return dataframes

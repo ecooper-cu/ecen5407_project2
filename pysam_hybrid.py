@@ -15,14 +15,15 @@ import pandas as pd
 import pysam_helpers
 import load_inspection_helpers
 import pickle
+import numpy as np
 
 # %% Load the inputs from the JSON file
 # Note that for the Hybrid System, we use a single JSON file rather than a file per module.
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'updated_econ_metrics' # change name!
-inputs_file = 'data/test_cases/updated_econ_metrics/Hybrid.json'
+case_name = 'remove_wind' # change name!
+inputs_file = 'data/test_cases/remove_wind/Hybrid.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
 
@@ -36,16 +37,9 @@ m.new()
 unassigned = m.assign(inputs) # returns a list of unassigned variables if any
 print(unassigned)
 
-# %% Set the custom dispatch
-old_dispatch = list(m.battery.BatteryDispatch.batt_custom_dispatch)
+# %% Ensure that the wind generation is set to zero
+m.wind.Turbine.wind_turbine_powercurve_powerout = np.zeros(len(m.wind.Turbine.wind_turbine_powercurve_powerout))
 
-dispatch_df = pd.read_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv")
-new_dispatch = dispatch_df["Battery Power Target (kW)"].to_list()
-
-# Confirm that you've updated the dispatch
-print(new_dispatch == old_dispatch)
-
-m.battery.BatteryDispatch.batt_custom_dispatch = new_dispatch
 #%% Run a simulation
 m.execute()
 
@@ -97,7 +91,7 @@ else:
         battery_discharge_efficiency = 0
 battery_cost = m.battery.HybridCosts.total_installed_cost
 
-system_cost = pv_cost + wind_cost + battery_cost
+system_cost = pv_cost + 0 + battery_cost
 
 # print outputs
 print(f'The total installed cost for the system is: ${system_cost:.2f}')
@@ -126,9 +120,9 @@ system_info = {
         'PV AC:DC Ratio': pv_dcac_ratio,
         'PV System Span': pv_land_area,
         'PV Cost': pv_cost,
-        'Wind System Size': wind_capacity_kWac,
-        'Wind System Span': wind_land_area,
-        'Wind Cost': wind_cost,
+        'Wind System Size': 0,
+        'Wind System Span': 0,
+        'Wind Cost': 0,
         'Battery Nominal Power': battery_power_kWdc,
         'Battery Capacity': battery_capacity_kWhdc,
         'Battery Discharge (Hours)': battery_time_at_max_discharge,
@@ -144,9 +138,9 @@ if store_case:
 
 # %% Store the outputs so we can generate a test case analysis!! 
 # Create a dictionary of DataFrames with the outputs from each model
-pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
-wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
-battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
+pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv, five_minutes_only=True)
+wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind, five_minutes_only=True)
+battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery, five_minutes_only=True)
 #grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
 #single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
@@ -165,8 +159,8 @@ if store_case:
 if 'Datetime' in test_case.columns:
         test_case.set_index('Datetime', inplace=True)
 
-date_start = '2012-07-27 00:00:00'
-date_end = '2012-07-28 00:00:00'
+date_start = '2012-01-31 00:00:00'
+date_end = '2012-02-01 00:00:00'
 
 columns_to_plot = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)', 'Load (kW)']
 pysam_helpers.plot_values_by_time_range(df=test_case, start_time=date_start, end_time=date_end, y_columns=columns_to_plot)
