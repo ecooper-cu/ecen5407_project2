@@ -366,7 +366,7 @@ def adjust_battery_dispatch(test_case):
 
 if __name__ == "__main__":
     # names:
-    available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)']
+    available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
     case_name = 'remove_wind'
