@@ -1,11 +1,8 @@
 # %% Module imports
 # Get performance model for each subsystem
-import PySAM.Pvsamv1 as PVSAM
-import PySAM.Grid as Grid
-import PySAM.Utilityrate5 as UtilityRate
-import PySAM.Singleowner as SingleOwner
-#import PySAM.Windpower as wind_model
-#import PySAM.Battery as battery_model
+import PySAM.Pvsamv1 as pv_model
+import PySAM.Windpower as wind_model
+import PySAM.Battery as battery_model
 
 # Get function for managing hybrid variables and simulations
 from PySAM.Hybrids.HybridSystem import HybridSystem
@@ -18,37 +15,39 @@ import pandas as pd
 import pysam_helpers
 import load_inspection_helpers
 import pickle
-import numpy as np
 
-# %% Create a new instance of each module and load the inputs from the corresponding JSON file
+# %% Load the inputs from the JSON file
+# Note that for the Hybrid System, we use a single JSON file rather than a file per module.
+# The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
+# Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'remove_wind' # change name!
-inputs_file = 'data/test_cases/remove_wind/Remove_Wind'
+case_name = 'updated_econ_metrics' # change name!
+inputs_file = 'data/test_cases/updated_econ_metrics/Hybrid.json'
+with open(inputs_file, 'r') as f:
+        inputs = json.load(f)['input']
 
-# Create a new instance of each module
-pvbatt_model = PVSAM.new()
-grid = Grid.from_existing(pvbatt_model)
-utility_rate = UtilityRate.from_existing(pvbatt_model)
-single_owner = SingleOwner.from_existing(pvbatt_model)
+# %% Create the hybrid system model using performance model names as defined by the import 
+# statements above. The string 'singleowner' indicates the financial model ('hostdeveloper' would
+# be another option).
+m = HybridSystem([pv_model, wind_model, battery_model], 'singleowner')
+m.new()
 
-# Load the inputs from the JSON file into each module
-file_names = ["pvsamv1", "grid", "utilityrate5", "singleowner"]
-modules = [pvbatt_model, grid, utility_rate, single_owner]
-for f, m in zip(file_names, modules):
-        filepath = inputs_file + "_" + f + '.json'
-        print(f"Loading inputs from: {filepath}")
-        with open(filepath, 'r') as f:
-                data = json.load(f)
-                # loop through each key-value pair
-                for k, v in data.items():
-                        # Note: I'm ignoring any 'adjustment factors' here, but these can be set afterwards.
-                        # See: https://nrel-pysam.readthedocs.io/en/main/modules/Pvsamv1.html#adjustmentfactors-group
-                        if k != "number_inputs" and 'adjust_' not in k:
-                                m.value(k, v)
+# %% Load the inputs from the JSON file into the main module
+unassigned = m.assign(inputs) # returns a list of unassigned variables if any
+print(unassigned)
 
+# %% Set the custom dispatch
+old_dispatch = list(m.battery.BatteryDispatch.batt_custom_dispatch)
+
+dispatch_df = pd.read_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv")
+new_dispatch = dispatch_df["Battery Power Target (kW)"].to_list()
+
+# Confirm that you've updated the dispatch
+print(new_dispatch == old_dispatch)
+
+m.battery.BatteryDispatch.batt_custom_dispatch = new_dispatch
 #%% Run a simulation
-for m in modules:
-        m.execute()
+m.execute()
 
 # %% Store some outputs
 # Be careful to use the correct module names as defined by the HybridSystem() function:
@@ -58,47 +57,47 @@ for m in modules:
 # https://github.com/NREL/SAM/blob/develop/deploy/runtime/ui/
 
 # PV Stuff
-pv_capacity_kWdc = pvbatt_model.SystemDesign.system_capacity
-pv_land_area = pvbatt_model.HybridCosts.land_area * 4046.86 # square meters
-inverter_model = int(pvbatt_model.Inverter.inverter_model)
-inv_snl_paco = pvbatt_model.Inverter.inv_snl_paco # Inverter Sandia Maximum AC Power [Wac]
-inv_ds_paco = pvbatt_model.Inverter.inv_ds_paco # Inverter Datasheet Maximum AC Power [Wac]
-inv_pd_paco = pvbatt_model.Inverter.inv_pd_paco # Inverter Partload Maximum AC Power [Wac]
-inv_cec_cg_paco = pvbatt_model.Inverter.inv_cec_cg_paco # Inverter Coefficient Generator Max AC Power [Wac]
+pv_capacity_kWdc = m.pv.SystemDesign.system_capacity
+pv_land_area = m.pv.HybridCosts.land_area * 4046.86 # square meters
+inverter_model = int(m.pv.Inverter.inverter_model)
+inv_snl_paco = m.pv.Inverter.inv_snl_paco # Inverter Sandia Maximum AC Power [Wac]
+inv_ds_paco = m.pv.Inverter.inv_ds_paco # Inverter Datasheet Maximum AC Power [Wac]
+inv_pd_paco = m.pv.Inverter.inv_pd_paco # Inverter Partload Maximum AC Power [Wac]
+inv_cec_cg_paco = m.pv.Inverter.inv_cec_cg_paco # Inverter Coefficient Generator Max AC Power [Wac]
 inverter_power = [inv_snl_paco, inv_ds_paco, inv_pd_paco, inv_cec_cg_paco][inverter_model]
-inverter_count = pvbatt_model.SystemDesign.inverter_count
+inverter_count = m.pv.SystemDesign.inverter_count
 total_inverter_capacity = inverter_power * inverter_count / 1000 # [kWac]
 pv_dcac_ratio = pv_capacity_kWdc / total_inverter_capacity
-#pv_cost = pvbatt_model.HybridCosts.total_installed_cost
+pv_cost = m.pv.HybridCosts.total_installed_cost
 
 # Wind Stuff
-#wind_capacity_kWac = m.wind.Farm.system_capacity
-#wind_size_x = max(m.wind.Farm.wind_farm_xCoordinates) # meters
-#wind_size_y = max(m.wind.Farm.wind_farm_yCoordinates) # meters
-#wind_land_area = wind_size_x * wind_size_y # square meters
-#wind_cost = m.wind.HybridCosts.total_installed_cost
+wind_capacity_kWac = m.wind.Farm.system_capacity
+wind_size_x = max(m.wind.Farm.wind_farm_xCoordinates) # meters
+wind_size_y = max(m.wind.Farm.wind_farm_yCoordinates) # meters
+wind_land_area = wind_size_x * wind_size_y # square meters
+wind_cost = m.wind.HybridCosts.total_installed_cost
 
 
 # Battery Stuff
-battery_power_kWdc = pvbatt_model.BatterySystem.batt_power_discharge_max_kwdc 
-battery_capacity_kWhdc = pvbatt_model.BatterySystem.batt_computed_bank_capacity
-battery_dc_ac_efficiency = pvbatt_model.BatterySystem.batt_dc_ac_efficiency
+battery_power_kWdc = m.battery.BatterySystem.batt_power_discharge_max_kwdc 
+battery_capacity_kWhdc = m.battery.BatterySystem.batt_computed_bank_capacity
+battery_dc_ac_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
 battery_time_at_max_discharge = battery_capacity_kWhdc / battery_power_kWdc
-if pvbatt_model.BatterySystem.batt_ac_or_dc == 0:
+if m.battery.BatterySystem.batt_ac_or_dc == 0:
         battery_connection_type = 'DC'
-        battery_charge_efficiency = pvbatt_model.BatterySystem.batt_dc_dc_efficiency
-        battery_discharge_efficiency = pvbatt_model.BatterySystem.batt_dc_ac_efficiency
-elif pvbatt_model.BatterySystem.batt_ac_or_dc == 1:
+        battery_charge_efficiency = m.battery.BatterySystem.batt_dc_dc_efficiency
+        battery_discharge_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
+elif m.battery.BatterySystem.batt_ac_or_dc == 1:
         battery_connection_type = 'AC'
-        battery_charge_efficiency = pvbatt_model.BatterySystem.batt_ac_dc_efficiency
-        battery_discharge_efficiency = pvbatt_model.BatterySystem.batt_dc_ac_efficiency
+        battery_charge_efficiency = m.battery.BatterySystem.batt_ac_dc_efficiency
+        battery_discharge_efficiency = m.battery.BatterySystem.batt_dc_ac_efficiency
 else:
         battery_connection_type = 'dis-'
         battery_charge_efficiency = 0
         battery_discharge_efficiency = 0
-#battery_cost = pvbatt_model.HybridCosts.total_installed_cost
+battery_cost = m.battery.HybridCosts.total_installed_cost
 
-system_cost = grid.HybridCosts.total_installed_cost
+system_cost = pv_cost + wind_cost + battery_cost
 
 # print outputs
 print(f'The total installed cost for the system is: ${system_cost:.2f}')
@@ -107,11 +106,11 @@ print(f'The PV system size is: {pv_capacity_kWdc:.2f} kW (DC)')
 print(f'The PV AC capacity is: {total_inverter_capacity:.2f} kW (AC)')
 print(f'The PV system DC:AC ratio is: {pv_dcac_ratio:.2f}')
 print(f'The PV system spans {pv_land_area:.2f} square meters')
-#print(f'The total installed cost for the PV system is: ${pv_cost:.2f}')
+print(f'The total installed cost for the PV system is: ${pv_cost:.2f}')
 print('\n')
-#print(f'The wind system size is: {wind_capacity_kWac:.2f} kW (AC)')
-#print(f'The wind system spans {wind_land_area:.2f} square meters')
-#print(f'The total installed cost for the wind system is: ${wind_cost:.2f}')
+print(f'The wind system size is: {wind_capacity_kWac:.2f} kW (AC)')
+print(f'The wind system spans {wind_land_area:.2f} square meters')
+print(f'The total installed cost for the wind system is: ${wind_cost:.2f}')
 print('\n')
 print(f'The battery nominal power is: {battery_power_kWdc:.2f} kW (DC)')
 print(f'The battery capacity is: {battery_capacity_kWhdc:.2f} kWh (DC)')
@@ -119,24 +118,24 @@ print(f'The battery can discharge for {battery_time_at_max_discharge} hours at r
 print(f'The battery is {battery_connection_type} connected.')
 print(f'The battery charges at {battery_charge_efficiency:.2f}% efficiency')
 print(f'The battery discharges at {battery_discharge_efficiency:.2f}% efficiency')
-#print(f'The total installed cost for the battery system is: ${battery_cost:.2f}')
+print(f'The total installed cost for the battery system is: ${battery_cost:.2f}')
 # store outputs in dict
 system_info = {
         'PV System Size': pv_capacity_kWdc,
         'PV AC Capacity': total_inverter_capacity,
         'PV AC:DC Ratio': pv_dcac_ratio,
         'PV System Span': pv_land_area,
-        #'PV Cost': pv_cost,
-        #'Wind System Size': 0,
-        #'Wind System Span': 0,
-        #'Wind Cost': 0,
+        'PV Cost': pv_cost,
+        'Wind System Size': wind_capacity_kWac,
+        'Wind System Span': wind_land_area,
+        'Wind Cost': wind_cost,
         'Battery Nominal Power': battery_power_kWdc,
         'Battery Capacity': battery_capacity_kWhdc,
         'Battery Discharge (Hours)': battery_time_at_max_discharge,
         'Battery Connection': battery_connection_type,
         'Battery Charge Efficiency': battery_charge_efficiency,
         'Battery Discharge Efficiency': battery_discharge_efficiency,
-        #'Battery Cost': battery_cost,
+        'Battery Cost': battery_cost,
         'System Cost': system_cost
 }
 if store_case:
@@ -145,17 +144,17 @@ if store_case:
 
 # %% Store the outputs so we can generate a test case analysis!! 
 # Create a dictionary of DataFrames with the outputs from each model
-pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(pvbatt_model, five_minutes_only=True)
-#wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind, five_minutes_only=True)
-#battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery, five_minutes_only=True)
+pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
+wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
+battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
 #grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
 #single_owner_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
 #%% 
 # Generate a system output dataframe
-system_output_dict = {'pvbatt':pv_model_outputs, 
-                      #'wind': wind_model_outputs,
-                      #'battery': battery_model_outputs
+system_output_dict = {'pv':pv_model_outputs, 
+                      'wind': wind_model_outputs,
+                      'battery': battery_model_outputs
                       }
 test_case = pysam_helpers.merge_subsystem_5min_dfs(system_output_dict)
 
@@ -166,13 +165,12 @@ if store_case:
 if 'Datetime' in test_case.columns:
         test_case.set_index('Datetime', inplace=True)
 
-date_start = '2012-01-31 00:00:00'
-date_end = '2012-02-01 00:00:00'
+date_start = '2012-07-27 00:00:00'
+date_end = '2012-07-28 00:00:00'
 
-#columns_to_plot = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)', 'Load (kW)']
-columns_to_plot = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Load (kW)']
+columns_to_plot = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)', 'Load (kW)']
 pysam_helpers.plot_values_by_time_range(df=test_case, start_time=date_start, end_time=date_end, y_columns=columns_to_plot)
-pysam_helpers.plot_values_by_time_range(df=test_case, start_time=date_start, end_time=date_end, y_columns=['battery SOC'])
+pysam_helpers.plot_values_by_time_range(df=battery_model_outputs['Lifetime 5 Minute Data'], start_time=date_start, end_time=date_end, y_columns=['batt_SOC'])
 # %% Save the dataframes as pickled objects
 # Saving/loading the dataframes in a CSV structure takes forever.
 # We can save the data in a more efficient way with pickled objects:

@@ -23,7 +23,7 @@ def interval_to_date_string(interval, interval_type, year):
     # Format the datetime to the desired string format
     return date_time.strftime('%Y-%m-%d, %H:%M:%S')
 
-def parse_model_outputs_into_dataframes(model, five_minutes_only=False):
+def parse_model_outputs_into_dataframes(model):
     """
     After executing each model, there will be a set of outputs associated with the simulation. 
     
@@ -83,81 +83,51 @@ def parse_model_outputs_into_dataframes(model, five_minutes_only=False):
     # Create DataFrames for each group
     dataframes = {}
     for length, items in grouped_data.items():
-        if five_minutes_only:
-            if length == 'float':
-                continue
-            elif length == five_minutes_in_analysis_period:
-                # Load the data into a DataFrame
-                df = pd.DataFrame.from_dict(items, orient='index').T
+        if length == 'float':
+            # Load the data into a DataFrame
+            df = pd.DataFrame([items.values()], columns=items.keys())
 
-                # Format the data
-                keyname = 'Lifetime 5 Minute Data'
+            # These are single-value data
+            dataframes[f'Single Values'] = df
+        else:
+            # Load the data into a DataFrame
+            df = pd.DataFrame.from_dict(items, orient='index').T
+
+            # Find the data interval length based on the length of the DataFrame
+            if length == years_in_analysis_period:
+                keyname = 'Annual_Data'
+            elif length == 12:
+                keyname = 'Monthly Data'
+                df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+            elif length == hours_in_year:
+                keyname = 'Hourly Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
-                    interval=x, interval_type='5-minute', year=2012))
-                df = manage_leap_years(df)
-                
-                # Set the keys
-                dataframes[keyname] = df
+                    interval=x, interval_type='hour', year=2012))
             elif length == five_minutes_in_year:
-                # Load the data into a DataFrame
-                df = pd.DataFrame.from_dict(items, orient='index').T
-            
-                # Format the data
                 keyname = '5 Minute Data'
                 df.index = df.index.map(lambda x: interval_to_date_string(
                     interval=x, interval_type='5-minute', year=2012))
                 df = manage_leap_years(df)
-
-                # Set the keys
-                dataframes[keyname] = df
+            elif length == hours_in_analysis_period:
+                keyname = 'Lifetime Hourly Data'
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='hour', year=2012))
+                df = manage_leap_years(df)
+            elif length == half_hours_in_analysis_period:
+                keyname = 'Lifetime 30 Minute Data'
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='half-hour', year=2012))
+                df = manage_leap_years(df)
+            elif length == five_minutes_in_analysis_period:
+                keyname = 'Lifetime 5 Minute Data'
+                df.index = df.index.map(lambda x: interval_to_date_string(
+                    interval=x, interval_type='5-minute', year=2012))
+                df = manage_leap_years(df)                
             else:
-                continue
-        else:
-            if length == 'float':
-                # Load the data into a DataFrame
-                df = pd.DataFrame([items.values()], columns=items.keys())
-
-                # These are single-value data
-                dataframes[f'Single Values'] = df
-            else:
-                # Load the data into a DataFrame
-                df = pd.DataFrame.from_dict(items, orient='index').T
-
-                # Find the data interval length based on the length of the DataFrame
-                if length == years_in_analysis_period:
-                    keyname = 'Annual_Data'
-                elif length == 12:
-                    keyname = 'Monthly Data'
-                    df.index = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-                elif length == hours_in_year:
-                    keyname = 'Hourly Data'
-                    df.index = df.index.map(lambda x: interval_to_date_string(
-                        interval=x, interval_type='hour', year=2012))
-                elif length == five_minutes_in_year:
-                    keyname = '5 Minute Data'
-                    df.index = df.index.map(lambda x: interval_to_date_string(
-                        interval=x, interval_type='5-minute', year=2012))
-                    df = manage_leap_years(df)
-                elif length == hours_in_analysis_period:
-                    keyname = 'Lifetime Hourly Data'
-                    df.index = df.index.map(lambda x: interval_to_date_string(
-                        interval=x, interval_type='hour', year=2012))
-                    df = manage_leap_years(df)
-                elif length == half_hours_in_analysis_period:
-                    keyname = 'Lifetime 30 Minute Data'
-                    df.index = df.index.map(lambda x: interval_to_date_string(
-                        interval=x, interval_type='half-hour', year=2012))
-                    df = manage_leap_years(df)
-                elif length == five_minutes_in_analysis_period:
-                    keyname = 'Lifetime 5 Minute Data'
-                    df.index = df.index.map(lambda x: interval_to_date_string(
-                        interval=x, interval_type='5-minute', year=2012))
-                    df = manage_leap_years(df)                
-                else:
-                    keyname = f'df_{length}'
-                
-                # Set the keys
-                dataframes[keyname] = df
+                keyname = f'df_{length}'
+            
+            # Set the keys
+            dataframes[keyname] = df
         
     # Return the dictionary of DataFrames
     return dataframes
@@ -268,18 +238,10 @@ def merge_subsystem_5min_dfs(system_output_dict):
                 return None
         
         # Each subsystem type will have different column names
-        if 'pvbatt' in subsystem_type.lower():
+        if 'pv' in subsystem_type.lower():
             # Define the columns in the subsystem DataFrame that we want to access
-            columns_to_pull = ['Datetime', 'ac_gross', 'batt_to_grid', 'system_to_batt', 'system_to_grid', 'batt_SOC']
-            new_column_names = {'ac_gross': 'Net PV Generation (kW)',
-                                'batt_to_grid': 'Battery Discharge Power (kW)',
-                                'system_to_batt': 'Battery Charge Power (kW)',
-                                'system_to_grid': 'PV to Grid (kW)',
-                                'batt_SOC': 'Battery SOC'}
-        #elif 'pv' in subsystem_type.lower():
-        #    # Define the columns in the subsystem DataFrame that we want to access
-        #    columns_to_pull = ['Datetime', 'ac_gross']
-        #    new_column_names = {'ac_gross': 'Net PV Generation (kW)'}
+            columns_to_pull = ['Datetime', 'ac_gross']
+            new_column_names = {'ac_gross': 'Net PV Generation (kW)'}
         elif 'wind' in subsystem_type.lower():
             # Define the columns in the subsystem DataFrame that we want to access
             columns_to_pull = ['Datetime', 'gen']
@@ -302,13 +264,10 @@ def merge_subsystem_5min_dfs(system_output_dict):
         # Add the dataframe to the list
         subsystem_dfs.append(this_df)
     
-    if len(subsystem_dfs) > 1:
-        # Loop through the list, merging each DataFrame
-        system_df = pd.merge(subsystem_dfs[0], subsystem_dfs[1], on='Datetime', how='inner')
-        for idx in range(1, len(subsystem_dfs) - 1):
-            system_df = pd.merge(system_df, subsystem_dfs[idx+1], on='Datetime', how='inner')
-    else:
-        system_df = subsystem_dfs[0]
+    # Loop through the list, merging each DataFrame
+    system_df = pd.merge(subsystem_dfs[0], subsystem_dfs[1], on='Datetime', how='inner')
+    for idx in range(1, len(subsystem_dfs) - 1):
+        system_df = pd.merge(system_df, subsystem_dfs[idx+1], on='Datetime', how='inner')
 
     # Return the system-wide dataframe
     return system_df
