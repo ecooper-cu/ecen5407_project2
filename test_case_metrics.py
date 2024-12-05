@@ -298,6 +298,7 @@ def plot_dispatch_stack(generation_stack, gen_sources, file_pth, day_name):
     plt.legend(bbox_to_anchor=(1.25, 1.0))
     plt.tight_layout()
     # save figure
+    os.makedirs(file_pth, exist_ok=True)
     plt.savefig(os.path.join(file_pth, f'{day_name}_dispatch_stack.png'), dpi=300, format='png', bbox_inches='tight')
 
 def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPLATE_MW, geo_cf = GEOTHERMAL_CAPACITY_FACTOR):
@@ -339,7 +340,7 @@ def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPL
 def plot_average_generation(test_case, gen_sources, file_pth):
     test_case['Hour'] = test_case['Datetime'].dt.hour  # Add a column for the hour
     hourly_avg = test_case.groupby('Hour').mean()
-    hourly_indices = pd.date_range(start='2012-01-01 00:00:00', end='2012-01-01 23:00:00', freq='H')
+    hourly_indices = pd.date_range(start='2012-01-01 00:00:00', end='2012-01-01 23:00:00', freq='h')
     hourly_avg['Datetime'] = hourly_indices
     gen_dict, excess_dict = generate_dispatch_stack(hourly_avg, '2012-01-01')
     plot_dispatch_stack(gen_dict, gen_sources, file_pth, day_name='Annual Average')
@@ -352,6 +353,7 @@ def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_na
     Store test case results
     """
     # store metrics
+    os.makedirs(file_pth, exist_ok=True)
     if baseline_metrics != {}:
         with open(os.path.join(file_pth, 'metrics.json'), 'w') as f:
             json.dump(baseline_metrics, f, indent=4)
@@ -381,8 +383,9 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'Baseline_System_No_Geothermal'
+    case_name = 'updated_econ_metrics'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
+    file_pth = os.path.join('data', 'test_cases', case_name)
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
     # determine which generation resources are available
@@ -397,6 +400,9 @@ if __name__ == "__main__":
 
     # read in stored data for load
     load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    test_load = False
+    # file_pth = os.path.join('data', 'test_cases', case_name, 'future_projections', 'EVs_38%_increase')
+    # load_filepath = os.path.join('data', 'future_projections', '2050_load_plus_EVs_38%_increase.xlsx')
     load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
 
     # add the load timeseries to the test case
@@ -407,30 +413,31 @@ if __name__ == "__main__":
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
-    store_results(os.path.join('data', 'test_cases', case_name), baseline_metrics)
+    store_results(file_pth, baseline_metrics)
 
     # generate average dispatch stack
-    test_case = plot_average_generation(test_case, gen_sources, os.path.join('data', 'test_cases', case_name))
+    test_case = plot_average_generation(test_case, gen_sources, file_pth)
 
-    # generate dispatch stack
-    days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
-    for day_to_study in days_to_study:
-        gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
+    if not test_load:
+        # generate dispatch stack
+        days_to_study = ['2012-01-16', '2012-04-30', '2012-05-20', '2012-07-27', '2012-09-11', '2012-10-01', '2012-11-15', '2012-12-22', '2012-12-24']
+        for day_to_study in days_to_study:
+            gen_dict, excess_dict = generate_dispatch_stack(test_case, day_to_study)
 
-        # store results
-        store_results(os.path.join('data', 'test_cases', case_name), {}, gen_dict, day_to_study)
+            # store results
+            store_results(file_pth, {}, gen_dict, day_to_study)
 
-        # # plot figure for dispatch
-        plot_dispatch_stack(gen_dict, gen_sources, os.path.join('data', 'test_cases', case_name), day_name=day_to_study)
-        # Convert to datetime object
-        date = datetime.strptime(day_to_study, "%Y-%m-%d")
+            # # plot figure for dispatch
+            plot_dispatch_stack(gen_dict, gen_sources, file_pth, day_name=day_to_study)
+            # Convert to datetime object
+            date = datetime.strptime(day_to_study, "%Y-%m-%d")
 
-        # Start of the day
-        start_of_day = date.strftime("%Y-%m-%d 00:00:00")
+            # Start of the day
+            start_of_day = date.strftime("%Y-%m-%d 00:00:00")
 
-        # End of the day (midnight of the next day minus 1 second)
-        end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
-        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
-        # pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
-        # pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
+            # End of the day (midnight of the next day minus 1 second)
+            end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
+            #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
+            # pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+            # pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
 
