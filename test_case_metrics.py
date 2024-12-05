@@ -8,6 +8,7 @@ import calendar
 from geothermal_constants import *
 import pysam_helpers
 from datetime import datetime, timedelta
+from scipy.integrate import trapezoid
 
 def calculate_baseline_metrics(test_case, test_case_system_info):
     """
@@ -334,6 +335,86 @@ def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPL
     test_case['Available Generation (kW)'] = test_case['System to Grid (kW)'] + np.array([geothermal_capacity_kW] * test_case['System to Grid (kW)'].shape[0])
     test_case['Generation to Grid (kW)'] = test_case['System to Grid (kW)'] + test_case['Geothermal Generation (kW)']
     return test_case, gen_sources
+
+def get_costs(pv_dc_rating=230, battery_capacity=90, geothermal_rating=87, wind_rating=61, load=None):
+
+    """
+    pv_dc_rating : nameplate dc power [MW]
+    battery_capacity : nameplate dc capapcity [Mwh]
+    geothermal_rating : nameplate ac power [MW]
+    wind_rating : nameplate ac power [MW]
+    load : 5 minute timeseries of load [MW], used to calculate energy prices
+
+    """
+
+    if geothermal_rating > 0:
+        geo_binary = 1
+    else:
+        geo_binary = 0
+    
+    transmission_cost_per_mile = 6000000
+
+    wind_op_costs = 30.85*wind_rating*1000
+    wind_capex = 1536.87*wind_rating*1000
+
+    geothermal_ac_rating = 87 # MW, only 77 MW will actually be available to grid
+    geothermal_cost_per_kwac = 6153.66
+    geothermal_capex = 26.6*transmission_cost_per_mile*geo_binary + geothermal_cost_per_kwac*geothermal_ac_rating*1000 # extra term reflects size-independent transmission costs
+    geothermal_op_costs = 118.41*geothermal_ac_rating*1000
+    
+    # PV + Battery system
+    ilr = 1.33
+    inverter_dc_rating = 2579 # kWdc
+    inverter_efficiency = 0.97
+    inverter_ac_rating = inverter_dc_rating*inverter_efficiency # kWac
+    num_inv = round(pv_dc_rating*1000/(ilr*inverter_ac_rating))
+
+    area = pv_dc_rating*1000/0.206 # m2
+
+    # Component costs
+    inverter_cost = num_inv*inverter_ac_rating*38.72
+    module_cost = 295.68*pv_dc_rating*1000
+    battery_cost = 228*battery_capacity
+
+    bos_cost_per_m2 = 27.07
+    bos_cost_per_kwdc = 156.16
+    bos_cost = bos_cost_per_m2*area + bos_cost_per_kwdc*pv_dc_rating*1000 # includes battery costs
+    installation_costs = 92.11*area # includes battery installation
+    overhead = 66.63*pv_dc_rating*1000 # Management + Contingency
+    permitting = 200000
+    engineering = 50000 + 3*area
+    interconnection = 85000 + 35*pv_dc_rating/ilr
+    land_purchase = 2.5*area
+    transmission = 25*transmission_cost_per_mile
+
+    hybrid_capex = module_cost + inverter_cost + battery_cost + bos_cost + installation_costs + overhead + permitting + engineering + interconnection + transmission + land_purchase
+    hybrid_op_costs = 48*pv_dc_rating*1000 + 180000
+
+    annual_op_costs =  wind_op_costs + geothermal_op_costs + hybrid_op_costs
+    print(f"Annual operating costs in 2026 are ${round(annual_op_costs)}")
+
+    inflation_rate = 1.0025
+    annual_op_costs_by_year = [annual_op_costs*inflation_rate**i for i in range(1, 26)]
+    total_op_costs = sum(annual_op_costs_by_year)
+    avg_annual_op_costs = total_op_costs/25
+    print(f"Total operating costs over plant lifetime are ${round(total_op_costs)}")
+    print(f"Average annual operating costs are ${round(avg_annual_op_costs)}")
+
+    upfront_cost = geothermal_capex + wind_capex + hybrid_capex
+    real_interest_rate = 1 + (0.00314 - 0.0025)
+    real_upfront_cost = upfront_cost*real_interest_rate**25 
+    avg_annual_upfront_payment = real_upfront_cost/25
+    print(f"Total CAPEX with interest and inflation are ${round(real_upfront_cost)}")
+    print(f"Average annual CAPEX payments are ${round(avg_annual_upfront_payment)}")
+
+    avg_annual_total_payment = avg_annual_upfront_payment + avg_annual_op_costs
+    print(f"Annual revenue required to meet CAPEX and operating costs is ${round(avg_annual_total_payment)}")
+
+    x = [i for i in range(0, 525600, 5)]
+    annual_load = trapezoid(load.values, x)
+    avg_energy_rate = avg_annual_total_payment/(annual_load*1000)
+    print(f"Average energy rate is ${round(avg_energy_rate, 4)}/kWh")
+
 
 def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_name = ''):
     """
