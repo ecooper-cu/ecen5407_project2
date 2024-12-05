@@ -15,15 +15,54 @@
     {
         "simulation": "DAY_AHEAD",
         "resolution": 300,
-        "category": "ElectricLoad",
-        "component_name": "load",
+        "category": "HydroPumpedStorage",
+        "component_name": "hydro",
         "module": "PowerSystems",
         "type": "SingleTimeSeries",
         "name": "max_active_power",
         "scaling_factor_multiplier": "get_max_active_power",
         "scaling_factor_multiplier_module": "PowerSystems",
         "normalization_factor": 1,
-        "data_file": "load.csv"
+        "data_file": "max_active_power.csv"
+    },
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "HydroPumpedStorage",
+        "component_name": "hydro",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "outflow",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "outflow.csv"
+    },
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "HydroPumpedStorage",
+        "component_name": "hydro",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "inflow",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "inflow.csv"
+    },
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "HydroPumpedStorage",
+        "component_name": "hydro",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "storage_capacity",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "storage_capacity.csv"
     },
     {
         "simulation": "DAY_AHEAD",
@@ -37,5 +76,18 @@
         "scaling_factor_multiplier_module": "PowerSystems",
         "normalization_factor": 1,
         "data_file": "wind.csv"
+    },
+    {
+        "simulation": "DAY_AHEAD",
+        "resolution": 300,
+        "category": "ElectricLoad",
+        "component_name": "load",
+        "module": "PowerSystems",
+        "type": "SingleTimeSeries",
+        "name": "max_active_power",
+        "scaling_factor_multiplier": "get_max_active_power",
+        "scaling_factor_multiplier_module": "PowerSystems",
+        "normalization_factor": 1,
+        "data_file": "load.csv"
     }
 ]

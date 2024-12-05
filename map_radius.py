@@ -27,7 +27,7 @@ buffer_union = unary_union(san_diego_buffer)
 ## Step 3: Overlay on top of Southern California
 # Filter southern counties
 southern_counties = california_counties[
-    california_counties['NAME'].isin(['San Diego', 'Los Angeles', 'Orange', 'Riverside', 'San Bernardino', 'Imperial'])
+    california_counties['NAME'].isin(['San Diego', 'Riverside', 'Orange','Imperial'])
 ]
 
 # Intersect buffer with southern counties
@@ -46,7 +46,7 @@ geo_plant_location = gpd.GeoDataFrame(
 
 # Create a GeoDataFrame for PV location
 pv_plant_location = gpd.GeoDataFrame(
-    [{'name': 'PV_Plant', 'geometry': pv_coords}],
+    [{'name': 'PV + Battery Plant', 'geometry': pv_coords}],
     crs="EPSG:4326"  # Use WGS84 (latitude and longitude)
 )
 
@@ -65,6 +65,8 @@ gpd.GeoSeries(buffer_union).plot(ax=ax, color='blue', alpha=0.3)
 within_50_miles.plot(ax=ax, color='darkgrey', alpha=0.5)
 geo_plant_location.plot(ax=ax, color='black', marker='o', label='Geothermal Plant', markersize=50)
 pv_plant_location.plot(ax=ax, color='tab:orange', marker='d', label='PV Plant', markersize=150)
+ax.set_xticks([])
+ax.set_yticks([])
 plt.legend()
 
 plt.title("Areas within 50 miles of San Diego County Border")
