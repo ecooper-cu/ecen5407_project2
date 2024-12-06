@@ -346,10 +346,7 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     load : 5 minute timeseries of load [MW], used to calculate energy prices
 
     """
-    pv_dc_rating = system_info['PV System Size'][0]/1000
-    battery_capacity = system_info['Battery Capacity'][0]/1000
     geothermal_rating = GEOTHERMAL_NAMEPLATE_MW if 'Geothermal Generation (kW)' in gen_sources else 0
-    wind_rating = system_info['Wind System Size'][0]/1000
     cost_dict = {}
 
     if geothermal_rating > 0:
@@ -359,44 +356,21 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     
     transmission_cost_per_mile = 6000000
 
-    wind_op_costs = 30.85*wind_rating*1000
-    wind_capex = 1536.87*wind_rating*1000
+    wind_capex = system_info['Wind Cost']
+    wind_op_costs = system_info["Wind Operating Cost"]
     wind_costs = {'Operating Costs': wind_op_costs, 'Capex': wind_capex}
 
-  
-    geothermal_ac_rating = 87 # MW, only 77 MW will actually be available to grid
     geothermal_cost_per_kwac = 6153.66
-    geothermal_capex = 26.6*transmission_cost_per_mile*geo_binary + geothermal_cost_per_kwac*geothermal_ac_rating*1000 # extra term reflects size-independent transmission costs
-    geothermal_op_costs = 118.41*geothermal_ac_rating*1000*geo_binary
+    geothermal_capex = 26.6*transmission_cost_per_mile*geo_binary + geothermal_cost_per_kwac*geothermal_rating
+    geothermal_op_costs = 118.41*geothermal_rating*geo_binary
     geo_costs = {'Operating Costs': geothermal_op_costs, 'Capex': geothermal_capex}
     
-    # PV + Battery system
-    ilr = 1.33
-    inverter_dc_rating = 2579 # kWdc
-    inverter_efficiency = 0.97
-    inverter_ac_rating = inverter_dc_rating*inverter_efficiency # kWac
-    num_inv = round(pv_dc_rating*1000/(ilr*inverter_ac_rating))
+    pv_capex = system_info["PV Cost"]
+    pv_op_costs = system_info["PV Operating Cost"]
+    battery_capex = system_info["Battery Cost"]
 
-    area = pv_dc_rating*1000/0.206 # m2
-
-    # Component costs
-    inverter_cost = num_inv*inverter_ac_rating*38.72
-    module_cost = 295.68*pv_dc_rating*1000
-    battery_cost = 228*battery_capacity
-
-    bos_cost_per_m2 = 27.07
-    bos_cost_per_kwdc = 156.16
-    bos_cost = bos_cost_per_m2*area + bos_cost_per_kwdc*pv_dc_rating*1000 # includes battery costs
-    installation_costs = 92.11*area # includes battery installation
-    overhead = 66.63*pv_dc_rating*1000 # Management + Contingency
-    permitting = 200000
-    engineering = 50000 + 3*area
-    interconnection = 85000 + 35*pv_dc_rating/ilr
-    land_purchase = 2.5*area
-    transmission = 25*transmission_cost_per_mile
-
-    hybrid_capex = module_cost + inverter_cost + battery_cost + bos_cost + installation_costs + overhead + permitting + engineering + interconnection + transmission + land_purchase
-    hybrid_op_costs = 48*pv_dc_rating*1000 + 180000
+    hybrid_capex = pv_capex + battery_capex
+    hybrid_op_costs = pv_op_costs
     hybrid_costs = {'Operating Costs': hybrid_op_costs, 'Capex': hybrid_capex}
 
     system_costs = {}

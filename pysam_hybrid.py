@@ -69,6 +69,7 @@ inverter_count = m.pv.SystemDesign.inverter_count
 total_inverter_capacity = inverter_power * inverter_count / 1000 # [kWac]
 pv_dcac_ratio = pv_capacity_kWdc / total_inverter_capacity
 pv_cost = m.pv.HybridCosts.total_installed_cost
+pv_ops_cost = m.pv.HybridCosts.om_fixed[0] + m.pv.HybridCosts.om_capacity[0]*m.pv.SystemDesign.system_capacity
 
 # Wind Stuff
 wind_capacity_kWac = m.wind.Farm.system_capacity
@@ -76,7 +77,7 @@ wind_size_x = max(m.wind.Farm.wind_farm_xCoordinates) # meters
 wind_size_y = max(m.wind.Farm.wind_farm_yCoordinates) # meters
 wind_land_area = wind_size_x * wind_size_y # square meters
 wind_cost = m.wind.HybridCosts.total_installed_cost
-
+wind_ops_cost = m.wind.HybridCosts.om_fixed[0] + m.wind.HybridCosts.om_capacity[0]*m.wind.Farm.system_capacity
 
 # Battery Stuff
 battery_power_kWdc = m.battery.BatterySystem.batt_power_discharge_max_kwdc 
@@ -126,9 +127,11 @@ system_info = {
         'PV AC:DC Ratio': pv_dcac_ratio,
         'PV System Span': pv_land_area,
         'PV Cost': pv_cost,
+        'PV Operating Cost': pv_ops_cost,
         'Wind System Size': wind_capacity_kWac,
         'Wind System Span': wind_land_area,
         'Wind Cost': wind_cost,
+        'Wind Operating Cost' : wind_ops_cost,
         'Battery Nominal Power': battery_power_kWdc,
         'Battery Capacity': battery_capacity_kWhdc,
         'Battery Discharge (Hours)': battery_time_at_max_discharge,
