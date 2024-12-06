@@ -428,8 +428,6 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     cost_dict = {'Wind': wind_costs, 'Geothermal': geo_costs, 'PV-Battery Hybrid': hybrid_costs, 'System': system_costs}
     with open(os.path.join(file_pth, f'cost_data_{load_name}.json'), 'w') as f:
         json.dump(cost_dict, f, indent=4)
-    
-
 
 def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_name = ''):
     """
