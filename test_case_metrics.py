@@ -336,7 +336,7 @@ def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPL
     test_case['Generation to Grid (kW)'] = test_case['System to Grid (kW)'] + test_case['Geothermal Generation (kW)']
     return test_case, gen_sources
 
-def get_costs(pv_dc_rating=230, battery_capacity=90, geothermal_rating=87, wind_rating=61, load=None):
+def get_costs(system_info, gen_sources, load, load_name, file_pth):
 
     """
     pv_dc_rating : nameplate dc power [MW]
@@ -346,6 +346,11 @@ def get_costs(pv_dc_rating=230, battery_capacity=90, geothermal_rating=87, wind_
     load : 5 minute timeseries of load [MW], used to calculate energy prices
 
     """
+    pv_dc_rating = system_info['PV System Size'][0]/1000
+    battery_capacity = system_info['Battery Capacity'][0]/1000
+    geothermal_rating = GEOTHERMAL_NAMEPLATE_MW if 'Geothermal Generation (kW)' in gen_sources else 0
+    wind_rating = system_info['Wind System Size'][0]/1000
+    cost_dict = {}
 
     if geothermal_rating > 0:
         geo_binary = 1
@@ -356,11 +361,14 @@ def get_costs(pv_dc_rating=230, battery_capacity=90, geothermal_rating=87, wind_
 
     wind_op_costs = 30.85*wind_rating*1000
     wind_capex = 1536.87*wind_rating*1000
+    wind_costs = {'Operating Costs': wind_op_costs, 'Capex': wind_capex}
 
+  
     geothermal_ac_rating = 87 # MW, only 77 MW will actually be available to grid
     geothermal_cost_per_kwac = 6153.66
     geothermal_capex = 26.6*transmission_cost_per_mile*geo_binary + geothermal_cost_per_kwac*geothermal_ac_rating*1000 # extra term reflects size-independent transmission costs
-    geothermal_op_costs = 118.41*geothermal_ac_rating*1000
+    geothermal_op_costs = 118.41*geothermal_ac_rating*1000*geo_binary
+    geo_costs = {'Operating Costs': geothermal_op_costs, 'Capex': geothermal_capex}
     
     # PV + Battery system
     ilr = 1.33
@@ -389,31 +397,38 @@ def get_costs(pv_dc_rating=230, battery_capacity=90, geothermal_rating=87, wind_
 
     hybrid_capex = module_cost + inverter_cost + battery_cost + bos_cost + installation_costs + overhead + permitting + engineering + interconnection + transmission + land_purchase
     hybrid_op_costs = 48*pv_dc_rating*1000 + 180000
+    hybrid_costs = {'Operating Costs': hybrid_op_costs, 'Capex': hybrid_capex}
 
+    system_costs = {}
     annual_op_costs =  wind_op_costs + geothermal_op_costs + hybrid_op_costs
-    print(f"Annual operating costs in 2026 are ${round(annual_op_costs)}")
+    system_costs['Annual Operating Costs'] = annual_op_costs
 
     inflation_rate = 1.0025
     annual_op_costs_by_year = [annual_op_costs*inflation_rate**i for i in range(1, 26)]
     total_op_costs = sum(annual_op_costs_by_year)
     avg_annual_op_costs = total_op_costs/25
-    print(f"Total operating costs over plant lifetime are ${round(total_op_costs)}")
-    print(f"Average annual operating costs are ${round(avg_annual_op_costs)}")
+    system_costs['Average Annual Operating Costs'] = avg_annual_op_costs
 
     upfront_cost = geothermal_capex + wind_capex + hybrid_capex
     real_interest_rate = 1 + (0.00314 - 0.0025)
     real_upfront_cost = upfront_cost*real_interest_rate**25 
     avg_annual_upfront_payment = real_upfront_cost/25
-    print(f"Total CAPEX with interest and inflation are ${round(real_upfront_cost)}")
-    print(f"Average annual CAPEX payments are ${round(avg_annual_upfront_payment)}")
+    system_costs['System Capex'] = real_upfront_cost
+    system_costs['Average Annual Capex Payments'] = avg_annual_upfront_payment
+    
 
     avg_annual_total_payment = avg_annual_upfront_payment + avg_annual_op_costs
-    print(f"Annual revenue required to meet CAPEX and operating costs is ${round(avg_annual_total_payment)}")
+    system_costs['Required Annual Average Revenue'] = avg_annual_total_payment
 
-    x = [i for i in range(0, 525600, 5)]
-    annual_load = trapezoid(load.values, x)
-    avg_energy_rate = avg_annual_total_payment/(annual_load*1000)
-    print(f"Average energy rate is ${round(avg_energy_rate, 4)}/kWh")
+    annual_load = np.sum(load)
+    avg_energy_rate = avg_annual_total_payment/annual_load
+    system_costs['Energy Rate (kWh)'] = avg_energy_rate
+
+    # store output
+    cost_dict = {'Wind': wind_costs, 'Geothermal': geo_costs, 'PV-Battery Hybrid': hybrid_costs, 'System': system_costs}
+    with open(os.path.join(file_pth, f'cost_data_{load_name}.json'), 'w') as f:
+        json.dump(cost_dict, f, indent=4)
+    
 
 
 def store_results(file_pth, baseline_metrics = {}, generation_stack = {}, day_name = ''):
@@ -466,13 +481,18 @@ if __name__ == "__main__":
 
     # read in stored data for load
     load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    load_name = '2012 Load Profile'
     load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
+
 
     # add the load timeseries to the test case
     test_case = add_load_to_test_case(test_case=test_case, load_df=load)
 
     # add geothermal
     test_case, gen_sources = add_geothermal_timeseries(test_case, gen_sources)
+
+    # determine cost data
+    get_costs(test_case_system_info, gen_sources, load['Load (kW)'].values, load_name, os.path.join('data', 'test_cases', case_name))
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
