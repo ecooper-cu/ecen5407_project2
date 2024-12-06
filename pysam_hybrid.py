@@ -21,8 +21,8 @@ import pickle
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 store_case = True # set to False if you don't want to generate a new case / write over existing case
-case_name = 'updated_econ_metrics' # change name!
-inputs_file = 'data/test_cases/updated_econ_metrics/Hybrid.json'
+case_name = 'Baseline_System_No_Geothermal' # change name!
+inputs_file = 'data/test_cases/Baseline_System_No_Geothermal/Baseline_with_Updated_Econ_metrics.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
 
@@ -39,7 +39,7 @@ print(unassigned)
 # %% Set the custom dispatch
 old_dispatch = list(m.battery.BatteryDispatch.batt_custom_dispatch)
 
-dispatch_df = pd.read_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv")
+dispatch_df = pd.read_csv("data/test_cases/Baseline_System_No_Geothermal/dispatch_target_5min.csv")
 new_dispatch = dispatch_df["Battery Power Target (kW)"].to_list()
 
 # Confirm that you've updated the dispatch
