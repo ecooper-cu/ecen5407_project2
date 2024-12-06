@@ -356,8 +356,8 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     
     transmission_cost_per_mile = 6000000
 
-    wind_capex = system_info['Wind Cost']
-    wind_op_costs = system_info["Wind Operating Cost"]
+    wind_capex = system_info['Wind Cost'][0]
+    wind_op_costs = system_info["Wind Operating Cost"][0]
     wind_costs = {'Operating Costs': wind_op_costs, 'Capex': wind_capex}
 
     geothermal_cost_per_kwac = 6153.66
@@ -365,9 +365,9 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     geothermal_op_costs = 118.41*geothermal_rating*geo_binary
     geo_costs = {'Operating Costs': geothermal_op_costs, 'Capex': geothermal_capex}
     
-    pv_capex = system_info["PV Cost"]
-    pv_op_costs = system_info["PV Operating Cost"]
-    battery_capex = system_info["Battery Cost"]
+    pv_capex = system_info["PV Cost"][0]
+    pv_op_costs = system_info["PV Operating Cost"][0]
+    battery_capex = system_info["Battery Cost"][0]
 
     hybrid_capex = pv_capex + battery_capex
     hybrid_op_costs = pv_op_costs
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'updated_econ_metrics'
+    case_name = 'Baseline_System_No_Geothermal'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
