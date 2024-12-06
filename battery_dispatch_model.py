@@ -24,7 +24,7 @@ import load_inspection_helpers
 # The JSON file referenced here is from SAM code generator for a PV Wind Battery sytem with a
 # Single Owner financial model
 print("Loading inputs...")
-inputs_file = 'data/PySam_Inputs/Hybrid_Project/Hybrid.json'
+inputs_file = 'data/test_cases/Baseline_System_No_Geothermal/Baseline_with_Updated_Econ_Metrics.json'
 with open(inputs_file, 'r') as f:
         inputs = json.load(f)['input']
 
@@ -43,17 +43,17 @@ print(unassigned)
 # Forbid the battery from charging from the system – now it can't participate
 m.battery.value("batt_dispatch_auto_can_charge", 0)
 
-# Run a simulation
+# %% Run a simulation
 print("Running PySAM simulation...")
 
 m.execute()
-
+# %%
 # Create a dictionary of DataFrames with the outputs from each model
 pv_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.pv)
 wind_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.wind)
 battery_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.battery)
-grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
-single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
+#grid_model_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m._grid)
+#single_owner_outputs = pysam_helpers.parse_model_outputs_into_dataframes(m.singleowner)
 
 # %% Compare load to generation
 # Build a dataframe of load data
@@ -84,11 +84,11 @@ merged['Battery Power Target (kW)'] = merged['Power Available for Battery (kW)']
 # %% Generate some plots
 date_start = '2012-07-27 00:00:00'
 date_end = '2012-07-28 00:00:00'
-gen.set_index('Datetime', inplace=True)
-pysam_helpers.plot_values_by_time_range(df=gen, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)'])
+#gen.set_index('Datetime', inplace=True)
+pysam_helpers.plot_values_by_time_range(df=merged, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)', 'Battery Power Target (kW)', 'Load (kW)'])
 
 # %% Generate a csv with the dispatch target
-merged['Battery Power Target (kW)'].to_csv('dispatch_target.csv', index=False)
+merged['Battery Power Target (kW)'].to_csv('data/test_cases/Baseline_System_No_Geothermal/dispatch_target_5min.csv', index=False)
 
 # %% Generate a csv of system power output without the battery
 merged.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
