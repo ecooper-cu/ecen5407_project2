@@ -253,7 +253,7 @@ def battery_dispatch_model_with_ramp_limits(merged):
                         discharge_power = load - (renewable_generation + geothermal_output)
                         discharge_power = np.clip(discharge_power, 0, max_discharge_power)
                         battery_power_target = discharge_power # Discharging is positive!
-                        soc_step
+                        soc_step = -1 * discharge_power * DISCHARGING_EFFICIENCY * timestep / BATTERY_ENERGY_CAPACITY # SOC should decrease
                 else:
                     # We do not have sufficient battery power to meet the load, so we should 
                     # use geothermal too
