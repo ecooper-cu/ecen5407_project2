@@ -443,7 +443,7 @@ if __name__ == "__main__":
     available_gen_sources = ['Battery Discharge Power (kW)', 'PV to Grid (kW)', 'Net Wind Generation (kW)']
 
     # read in stored data for test case
-    case_name = 'updated_econ_metrics'
+    case_name = 'TOU_Rates'
     test_case = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}.csv'))
     test_case_system_info = pd.read_csv(os.path.join('data', 'test_cases', case_name, f'{case_name}_system_info.csv'))
 
@@ -458,7 +458,7 @@ if __name__ == "__main__":
     test_case['Datetime'] = pd.to_datetime(test_case['Datetime'])
 
     # read in stored data for load
-    load_filepath = 'data/Project 2 - Load Profile.xlsx'
+    load_filepath = 'data/Project 2 - Load Profile_2050_TOU_321.xlsx'
     load_name = '2012 Load Profile'
     load = load_inspection_helpers.format_load_data(load_filepath=load_filepath)
 
