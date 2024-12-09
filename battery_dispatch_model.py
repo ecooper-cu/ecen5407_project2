@@ -308,7 +308,7 @@ def get_battery_utilization(result, m):
         print(f"Battery utilization is {battery_capacity_factor * 100:.2f}% of the ideal utilization.")
 
 # %% Execute PySAM model
-m = run_pysam_model(inputs_file='data/test_cases/updated_econ_metrics/Hybrid.json')
+m = run_pysam_model(inputs_file='data/test_cases/TOU_Rates/Hybrid.json')
 
 # %% Define some system characteristics that the dispatch model requires
 # Battery stuff from SAM
@@ -326,7 +326,7 @@ DISCHARGING_EFFICIENCY = m.battery.BatterySystem.batt_dc_ac_efficiency
 timestep = 5/60 # 5-minute timestep in hours
 
 # %% Prepare dataset
-load = produce_load_dataframe(load_filepath='data/Project 2 - Load Profile.xlsx')
+load = produce_load_dataframe(load_filepath='data/Project 2 - Load Profile_2050_TOU_321.xlsx')
 gen = produce_generation_dataframe(m=m)
 
 #%% Merge the two dataframes
@@ -355,8 +355,8 @@ else:
 
 
 # %% Generate some plots
-date_start = '2012-01-31 00:00:00'
-date_end = '2012-02-01 00:00:00'
+date_start = '2012-09-16 00:00:00'
+date_end = '2012-09-17 00:00:00'
 pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['PV Generation (kW)', 'Wind Generation (kW)', 'Load (kW)', 'Battery Power Target (kW)', 'Expected Geothermal Output (kW)'])
 pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_time=date_end, y_columns=['SOC'])
 
@@ -364,7 +364,7 @@ pysam_helpers.plot_values_by_time_range(df=result, start_time=date_start, end_ti
 get_battery_utilization(result, m)
 
 # %% Generate a csv with the dispatch target
-result['Battery Power Target (kW)'].to_csv("data/test_cases/updated_econ_metrics/dispatch_target_5min.csv", index=False)
+result['Battery Power Target (kW)'].to_csv("data/test_cases/TOU_Rates/dispatch_target_5min.csv", index=False)
 
 # %% Generate a csv of system power output without the battery
 #result.to_csv('data/PySAM_Outputs/baseline_system_output.csv')
