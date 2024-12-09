@@ -339,13 +339,21 @@ def add_geothermal_timeseries(test_case, gen_sources, geo_mw = GEOTHERMAL_NAMEPL
 def get_costs(system_info, gen_sources, load, load_name, file_pth):
 
     """
-    pv_dc_rating : nameplate dc power [MW]
-    battery_capacity : nameplate dc capapcity [Mwh]
-    geothermal_rating : nameplate ac power [MW]
-    wind_rating : nameplate ac power [MW]
-    load : 5 minute timeseries of load [MW], used to calculate energy prices
+    Parameters
+    ----------
+    test_case_system_info (pd.DataFrame): contains sizing and cost information for system components
+    load (pd.DataFrame): 5 minute timeseries of load [MW], used to calculate energy prices
+
+    Returns
+    -------
+    Nothing, just dumps metrics into .json file
 
     """
+    x = np.arange(0, 8760, 5/60)
+    y = np.ravel(load.values)
+    annual_load = trapezoid(y, x) # MWh
+    annual_load_kwh = annual_load*1000
+
     geothermal_rating = GEOTHERMAL_NAMEPLATE_MW if 'Geothermal Generation (kW)' in gen_sources else 0
     cost_dict = {}
 
@@ -390,12 +398,10 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     system_costs['System Capex'] = real_upfront_cost
     system_costs['Average Annual Capex Payments'] = avg_annual_upfront_payment
     
-
     avg_annual_total_payment = avg_annual_upfront_payment + avg_annual_op_costs
     system_costs['Required Annual Average Revenue'] = avg_annual_total_payment
 
-    annual_load = np.sum(load)
-    avg_energy_rate = avg_annual_total_payment/annual_load
+    avg_energy_rate = avg_annual_total_payment/annual_load_kwh
     system_costs['Energy Rate (kWh)'] = avg_energy_rate
 
     # store output
