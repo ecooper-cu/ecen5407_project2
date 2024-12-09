@@ -1,0 +1,22 @@
+{
+    "Wind": {
+        "Operating Costs": 2684000.0,
+        "Capex": 92171000.0
+    },
+    "Geothermal": {
+        "Operating Costs": 9117.57,
+        "Capex": 160073831.82
+    },
+    "PV-Battery Hybrid": {
+        "Operating Costs": 11219909.970096,
+        "Capex": 571515123.0916116
+    },
+    "System": {
+        "Annual Operating Costs": 13913027.540096,
+        "Average Annual Operating Costs": 14374375.845502004,
+        "System Capex": 837041836.2370244,
+        "Average Annual Capex Payments": 33481673.449480977,
+        "Required Annual Average Revenue": 47856049.294982985,
+        "Energy Rate (kWh)": 0.009732133588859675
+    }
+}

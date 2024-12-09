@@ -39,13 +39,16 @@ print(unassigned)
 # %% Set the custom dispatch
 old_dispatch = list(m.battery.BatteryDispatch.batt_custom_dispatch)
 
-dispatch_df = pd.read_csv("data/test_cases/Trial_Full_System_90kW_4hr_Battery_with_Geothermal_Ramp_Limits/dispatch_target_5min.csv")
+dispatch_df = pd.read_csv("data/test_cases/updated_econ_metrics/dispatch_target_5min.csv")
 new_dispatch = dispatch_df["Battery Power Target (kW)"].to_list()
 
 # Confirm that you've updated the dispatch
-print(new_dispatch == old_dispatch)
+#print(new_dispatch == old_dispatch)
 
 m.battery.BatteryDispatch.batt_custom_dispatch = new_dispatch
+
+print(list(m.battery.BatteryDispatch.batt_custom_dispatch) == old_dispatch)
+print(list(m.battery.BatteryDispatch.batt_custom_dispatch) == new_dispatch)
 #%% Run a simulation
 m.execute()
 
