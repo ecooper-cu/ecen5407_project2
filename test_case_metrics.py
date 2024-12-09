@@ -342,7 +342,7 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
     Parameters
     ----------
     test_case_system_info (pd.DataFrame): contains sizing and cost information for system components
-    load (pd.DataFrame): 5 minute timeseries of load [MW], used to calculate energy prices
+    load (np.ndarray): 5 minute timeseries of load [MW], used to calculate energy prices
 
     Returns
     -------
@@ -350,7 +350,7 @@ def get_costs(system_info, gen_sources, load, load_name, file_pth):
 
     """
     x = np.arange(0, 8760, 5/60)
-    y = np.ravel(load.values)
+    y = np.ravel(load)
     annual_load = trapezoid(y, x) # MWh
     annual_load_kwh = annual_load*1000
 
@@ -470,7 +470,7 @@ if __name__ == "__main__":
     test_case, gen_sources = add_geothermal_timeseries(test_case, gen_sources)
 
     # determine cost data
-    get_costs(test_case_system_info, gen_sources, load['Load (kW)'].values, load_name, os.path.join('data', 'test_cases', case_name))
+    #get_costs(test_case_system_info, gen_sources, load['Load (kW)'].values, load_name, os.path.join('data', 'test_cases', case_name))
 
     # calculate baseline metrics
     baseline_metrics = calculate_baseline_metrics(test_case, test_case_system_info)
@@ -495,5 +495,5 @@ if __name__ == "__main__":
         # End of the day (midnight of the next day minus 1 second)
         end_of_day = (date + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%d 23:59:59")
         #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'Generation to Grid (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
-        pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Load (kW)', 'System to Grid (kW)', 'Geothermal Generation (kW)', 'Battery Discharge Power (kW)', 'Battery Charge Power (kW)'])
+        #pysam_helpers.plot_values_by_time_range(df=test_case, start_time=start_of_day, end_time=end_of_day, y_columns=['Battery SOC'])
